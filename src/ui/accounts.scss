@@ -1,20 +1,60 @@
 .accounts {
-	padding: 0 10px;
+	padding: 20px;
 
-	> .selector {
+	display: flex;
+	flex-flow: row nowrap;
+
+	> .left {
+		flex: 0 0 240px;
+
 		> .options {
-			> .account {
-				border-bottom: 1px solid #AAA;
+			border: 1px solid #AAA;
 
-				&:hover {
-					opacity: 0.7;
+			> .account {
+				padding: 20px;
+				background-color: white;
+				display: flex;
+				flex-flow: row nowrap;
+
+				&:not(:first-child) {
+					border-top: 1px solid #AAA;
+				}
+
+				&.preDrag {
+					border: 1px solid #AAA;
+				}
+
+				&.dragged {
+					background-color: #DDD;
+					* { visibility: hidden; }
+				}
+
+				&.active {
+					background-color: #EEE;
+				}
+
+				&.hovered {
+					background-color: #DDD;
+				}
+
+				> .handle {
+					flex: 0 0 20px;
+					margin-right: 10px;
+					height: 20px;
+					background: #AAA;
+					cursor: move;
 				}
 			}
 		}
 
-		> .content {
-			flex: 1 1 auto;
-			padding: 0 20px;
+		> button {
+			display: block;
+			margin: 10px 0;
 		}
+	}
+
+	> .content {
+		flex: 1 1 auto;
+		padding: 0 20px;
 	}
 }
