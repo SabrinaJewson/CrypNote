@@ -215,6 +215,10 @@ export class LockedAccount {
 			default: throw new OutdatedError();
 		}
 	}
+
+	[eqSymbol](other: LockedAccount): boolean {
+		return eq(this.publicData.dsaPublicKey, other.publicData.dsaPublicKey);
+	}
 }
 
 export interface UnlockedAccount {
@@ -639,17 +643,8 @@ export type Message = never
 export class NotForYouError { private _: undefined; }
 
 // This function is resistant to mutations to `me`.
-export async function decode(me: UnlockedAccount, base64: string): Promise<Decoded> {
+export async function decode(me: UnlockedAccount, bytes: Bytes): Promise<Decoded> {
 	const dhPrivateKey = me.dhKeyPair.privateKey;
-
-	const bytes = Bytes.buildWith(writer => {
-		try {
-			return base64UrlDecode(base64, writer);
-		} catch (e) {
-			throw new InvalidFormatError();
-		}
-	});
-
 	const reader = new BytesReader(bytes);
 
 	switch (readUint8(reader)) {
@@ -721,7 +716,7 @@ export async function decode(me: UnlockedAccount, base64: string): Promise<Decod
 }
 
 // This function is resistant to mutations to `me` and `message`.
-export async function encryptMessage(me: UnlockedAccount, recipient: SharedContact | null, message: Message): Promise<string> {
+export async function encryptMessage(me: UnlockedAccount, recipient: SharedContact | null, message: Message): Promise<Bytes> {
 	const toEncrypt = Bytes.buildWith(writer => writeMessage(writer, message));
 
 	const senderPromise = SharedContact.ofAccount(me);
@@ -756,11 +751,11 @@ export async function encryptMessage(me: UnlockedAccount, recipient: SharedConta
 	writeLenBuffer(output, 1, iv);
 	writeLenBuffer(output, 4, ciphertext);
 
-	return base64UrlEncode(output);
+	return output.takeBytes();
 }
 
 // This function is resistant to mutations to `me` and `message`.
-export async function signMessage(me: UnlockedAccount, message: Message): Promise<string> {
+export async function signMessage(me: UnlockedAccount, message: Message): Promise<Bytes> {
 	const dsaPrivateKey = me.dsaPrivateKey;
 
 	const toSign = Bytes.buildWith(writer => writeMessage(writer, message));
@@ -779,14 +774,14 @@ export async function signMessage(me: UnlockedAccount, message: Message): Promis
 	writeLenBuffer(output, 1, signature);
 	output.extend(toSign);
 
-	return base64UrlEncode(output);
+	return output.takeBytes();
 }
 
-export function contactCard(contact: SharedContact): string {
-	const message = BytesMut.new();
-	writeUint8(message, 2); // version numebr
-	contact.writeTo(message);
-	return base64UrlEncode(message);
+export function contactCard(contact: SharedContact): Bytes {
+	const encoded = BytesMut.new();
+	writeUint8(encoded, 2); // version numebr
+	contact.writeTo(encoded);
+	return encoded.takeBytes();
 }
 
 // WARNING: this function consumes all input, so must be called last.

@@ -1,5 +1,6 @@
-import App from "./ui";
 import { render } from "solid-js/web";
+
+import App from "./ui";
 
 render(App, document.getElementById("app")!);
 

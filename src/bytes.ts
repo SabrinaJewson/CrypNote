@@ -25,6 +25,10 @@ export class Bytes implements ArrayLike<number> {
 		);
 	}
 
+	static new(): Bytes {
+		return Bytes.fromImmutableArray(new Uint8Array());
+	}
+
 	// Create a `Bytes` instance from a buffer that is guaranteed to be immutable.
 	static fromImmutableBuffer(buffer: ArrayBuffer): Bytes {
 		return Bytes.fromImmutableArray(new Uint8Array(buffer));
@@ -45,6 +49,10 @@ export class Bytes implements ArrayLike<number> {
 
 	get length(): number {
 		return this.inner.length;
+	}
+
+	isEmpty(): boolean {
+		return this.inner.length === 0;
 	}
 
 	readonly [index: number]: number;

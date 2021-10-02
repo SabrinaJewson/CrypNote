@@ -27,13 +27,7 @@
 			display: block;
 		}
 
-		pre.wrapped {
-			word-break: break-all;
-			white-space: pre-wrap;
-			max-width: 60ch;
-		}
-
-		.contact {
+		> .contact {
 			margin: 10px 0;
 
 			border: 1px solid #CCC;

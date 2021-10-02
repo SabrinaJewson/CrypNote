@@ -1,0 +1,14 @@
+.exportable {
+	> pre {
+		word-break: break-all;
+		white-space: pre-wrap;
+		max-width: 60ch;
+
+	}
+}
+
+.importable {
+	> textarea.invalid {
+		border-color: red;
+	}
+}

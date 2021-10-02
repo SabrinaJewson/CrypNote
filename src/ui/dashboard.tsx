@@ -1,10 +1,13 @@
-import { For, Show, batch, createEffect } from "solid-js";
+import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
 import { createMemo, createResource, createSignal } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 
 import { DecodedKind, InvalidFormatError, Message, MessageKind, NotForYouError, OutdatedError, SharedContact, UnlockedAccount, contactCard, decode, encryptMessage, signMessage } from "../stored";
+import { Exportable, Importable } from "./exportable";
+import { Bytes } from "../bytes";
+import OrderableList from "./orderableList";
 import { eq } from "../eq";
 import { exhausted } from "../index";
 
@@ -64,10 +67,10 @@ interface ScreenProps {
 }
 
 function Decode(props: ScreenProps): JSX.Element {
-	const [encoded, setEncoded] = createSignal("");
+	const [encoded, setEncoded] = createSignal(Bytes.new());
 
 	const [decoded] = createResource(encoded, async encoded => {
-		if (encoded === "") {
+		if (encoded.isEmpty()) {
 			return null;
 		}
 		try {
@@ -87,8 +90,7 @@ function Decode(props: ScreenProps): JSX.Element {
 			You can input any encrypted message, signed message or contact card in the box below,
 			and CrypNote will decode it for you.
 		</p>
-		<textarea rows="6" value={encoded()} onInput={e => setEncoded((e.target as HTMLTextAreaElement).value)} />
-		<button type="button" onClick={() => setEncoded("")}>Clear</button>
+		<Importable rows={6} setData={setEncoded} />
 		{() => {
 			const decoded_ = decoded();
 			if (decoded_ === null) {
@@ -265,9 +267,8 @@ function Encrypt(props: ScreenProps): JSX.Element {
 		</select></label></p>
 		<MessageInput message={message} setMessage={setMessage} />
 		<Show when={encrypted() !== undefined} fallback={<p>Select an account to receive the message.</p>}>
-			<pre class="wrapped">{encrypted()}</pre>
 			<button type="button" onClick={regenerate}>Regenerate</button>
-			<CopyButton data={encrypted()!} />
+			<Exportable data={encrypted()!} />
 		</Show>
 	</>;
 }
@@ -290,96 +291,40 @@ function Sign(props: ScreenProps): JSX.Element {
 		</p>
 		<MessageInput message={message} setMessage={setMessage} />
 		<Show when={signed() !== undefined} fallback={<p>Loading...</p>}>
-			<pre class="wrapped">{signed()}</pre>
-			<CopyButton data={signed()!} />
+			<Exportable data={signed()!} />
 		</Show>
 	</>;
 }
 
 function Contacts(props: ScreenProps): JSX.Element {
-	const [dragging, setDragging] = createSignal<number | null>(null);
-
 	return <>
 		<h1>Contacts</h1>
-		<For each={props.account.contacts} fallback={<p>You have no contacts.</p>}>{(contact, i) => {
-			let div_: HTMLDivElement | undefined = undefined; // eslint-disable-line prefer-const
-
-			createEffect(() => {
-				const div = div_!;
-				if (i() === dragging()) {
-					requestAnimationFrame(() => {
-						div.classList.add("dragged");
-					});
-				} else {
-					div.classList.remove("dragged");
-				}
-			});
-
-			let clicked: HTMLElement;
-
-			return <div
-				class="contact"
-				ref={div_}
-				draggable={true}
-				onMouseDown={e => clicked = e.target as HTMLElement}
-				onDragStart={e => {
-					if (clicked.classList.contains("handle")) {
-						const dataTransfer = e.dataTransfer!;
-						dataTransfer.dropEffect = "move";
-						dataTransfer.effectAllowed = "move";
-						setDragging(i());
-					} else {
-						e.preventDefault();
-					}
-				}}
-				onDragEnter={e => {
-					const oldDragging = dragging();
-					if (oldDragging === null) {
-						return;
-					}
-					const oldI = i();
-					if (oldI !== oldDragging) {
-						batch(() => {
-							setDragging(oldI);
-							props.setAccount("contacts", oldContacts => {
-								const contacts = [...oldContacts];
-								[contacts[oldDragging], contacts[oldI]] = [contacts[oldI], contacts[oldDragging]];
-								return contacts;
-							});
-						});
-					}
-					e.preventDefault();
-					e.dataTransfer!.dropEffect = "move";
-				}}
-				onDragOver={e => {
-					if (dragging() !== null) {
-						e.preventDefault();
-					}
-				}}
-				onDrop={e => e.preventDefault()}
-				onDragEnd={() => setDragging(null)}
-			>
-				<div class="handle"></div>
+		<OrderableList
+			list={props.account.contacts}
+			setList={f => props.setAccount("contacts", f) }
+			fallback={<p>You have no contacts.</p>}
+		>{(contact, i, _preDrag, isDragged, Handle) => {
+			return <div class="contact" classList={{ dragged: isDragged() }}>
+				<Handle />
 				<input type="text" value={contact.nickname} onInput={e => {
 					const updated = (e.target as HTMLInputElement).value;
 					props.setAccount("contacts", i(), "nickname", updated);
 				}} />
 				<p>Public key: <code>{contact.shared.dsaPublicKey.toString()}</code></p>
 				<p>Contact card:</p>
-				<pre class="wrapped">{contactCard(contact.shared)}</pre>
-				<CopyButton data={contactCard(contact.shared)} />
+				<Exportable data={contactCard(contact.shared)} />
 				<p><label>Note <textarea value={contact.note} onInput={e => {
 					const updated = (e.target as HTMLTextAreaElement).value;
 					props.setAccount("contacts", i(), "note", updated);
 				}} /></label></p>
 
-				<button type="button" onClick={() => {
+				<button type="button" class="warn" onClick={() => {
 					props.setAccount("contacts", contacts => {
 						return [...contacts.slice(0, i()), ...contacts.slice(i() + 1)];
 					});
-				}}>Delete Contact</button>
-			</div>;
-		}}</For>
+				}}>Delete contact</button>
+			</div> as HTMLElement;
+		}}</OrderableList>
 		<p>
 			You can add new contacts by entering encrypted messages, signed messages or contact
 			cards into the decoding box.
@@ -401,8 +346,7 @@ function UserProfile(props: ScreenProps): JSX.Element {
 		<p>Public key: <code>{props.account.publicData.dsaPublicKey.toString()}</code></p>
 		<Show when={sharedContact() !== undefined}>
 			<p>Contact card:</p>
-			<pre class="wrapped">{sharedContact()}</pre>
-			<CopyButton data={sharedContact()!} />
+			<Exportable data={sharedContact()!} />
 			<p>
 				You may freely share this with other people to allow them to contact you. It will
 				also be attached to every message you encrypt or sign.
@@ -423,36 +367,4 @@ function MessageInput(props: { message: Message, setMessage: SetStoreFunction<Me
 
 function DisplayMessage(props: { message: Message }): JSX.Element {
 	return <pre>{props.message.content}</pre>;
-}
-
-function CopyButton(props: { data: string }): JSX.Element {
-	enum CopiedState { Initial, Shown, Fading }
-	type Copied = never
-		| { state: CopiedState.Initial }
-		| { state: CopiedState.Shown, timer: number }
-		| { state: CopiedState.Fading };
-	const [copied, setCopied] = createSignal<Copied>({ state: CopiedState.Initial });
-
-	return <>
-		<button type="button" onClick={() => {
-			void (async () => {
-				await navigator.clipboard.writeText(props.data);
-				const timer = window.setTimeout(() => {
-					setCopied({ state: CopiedState.Fading });
-				}, 300);
-				setCopied(old => {
-					if (old.state === CopiedState.Shown) {
-						window.clearTimeout(old.timer);
-					}
-					return { state: CopiedState.Shown, timer };
-				});
-			})();
-		}}>Click to copy</button>
-		<Show when={copied().state !== CopiedState.Initial}>
-			<span
-				classList={{ fade: copied().state === CopiedState.Fading }}
-				onTransitionEnd={() => setCopied({ state: CopiedState.Initial })}
-			> Copied!</span>
-		</Show>
-	</>;
 }
