@@ -1,0 +1,87 @@
+.dashboard {
+	display: flex;
+	flex-flow: row nowrap;
+
+	> .leftPanel {
+		flex: 0 0 150px;
+
+		> div {
+			padding: 20px 5px;
+
+			&.active {
+				background-color: #EEE;
+			}
+			&:hover {
+				background-color: #DDD;
+			}
+		}
+	}
+
+	> .rightPanel {
+		flex: 1 1 auto;
+		display: none;
+
+		padding: 0 10px;
+
+		&.shown {
+			display: block;
+		}
+
+		pre.wrapped {
+			word-break: break-all;
+			white-space: pre-wrap;
+			max-width: 60ch;
+		}
+
+		.contact {
+			margin: 10px 0;
+
+			border: 1px solid #CCC;
+			border-radius: 5px;
+			padding: 20px 20px;
+			background: white;
+
+			&.dragged {
+				border: none;
+				background-color: #AAA;
+				> * { visibility: hidden; }
+			}
+
+			position: relative;
+			.handle {
+				position: absolute;
+				top: 10px;
+				right: 10px;
+				width: 40px;
+				height: 40px;
+				background-color: #AAA;
+				cursor: move;
+			}
+
+			* {
+				user-select: text;
+			}
+
+			label {
+				font-size: 10px;
+				font-variant: small-caps;
+
+				> * {
+					display: block;
+				}
+			}
+		}
+
+		.verified {
+			color: green;
+		}
+		.verifyError {
+			margin: 10px 0;
+
+			background-color: pink;
+			border: 1px solid red;
+			border-radius: 5px;
+			padding: 0 10px;
+		}
+	}
+}

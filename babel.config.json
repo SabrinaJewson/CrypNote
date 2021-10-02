@@ -1,0 +1,19 @@
+{
+	"presets": [
+		[
+			"@babel/preset-env",
+			{
+				"targets": "last 2 chrome versions"
+			}
+		],
+		[
+			"@babel/preset-typescript",
+			{
+				"jsxPragma": "JSX",
+				"allowNamespaces": true
+			}
+		],
+		"babel-preset-solid"
+	],
+	"plugins": []
+}
