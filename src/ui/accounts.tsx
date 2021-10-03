@@ -214,7 +214,16 @@ function Account(props: {
 			<Show when={error() !== ""}><p class="error">{error()}</p></Show>
 		</form>
 		<p><button type="button" class="warn" onClick={props.onDelete}>Delete Account</button></p>
-		<p>Exported data:</p>
+		<p>
+			Exported account data is below. You can import this to any other CrypNote instance using
+			the "Import account" button. You are strongly recommended to frequently back up the
+			exported account data of any accounts you have to avoid the accidental clearance of
+			browser cache causing you to lose access to your account.
+		</p>
+		<p>
+			The below data is encrypted; although it contains all the secrets of your account, it
+			can't be accessed without your password.
+		</p>
 		<Exportable data={Bytes.buildWith(writer => props.account.writeTo(writer))} />
 	</>;
 }
