@@ -4,7 +4,9 @@ const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const HtmlInlineScriptPlugin = require("html-inline-script-webpack-plugin");
 
-module.exports = production => ({
+const production = process.env.NODE_ENV === "production";
+
+module.exports = {
 	entry: "./src/index.tsx",
 	module: {
 		rules: [
@@ -43,5 +45,5 @@ module.exports = production => ({
 		extensions: [".ts", ".tsx"],
 	},
 	devtool: production ? false : "eval-cheap-module-source-map",
-	mode: production ? "production" : "development",
-});
+	mode: process.env.NODE_ENV,
+};
