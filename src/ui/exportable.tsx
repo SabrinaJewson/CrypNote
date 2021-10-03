@@ -39,7 +39,7 @@ export function Importable(props: { rows: number, setData: (data: Bytes) => void
 			classList={{ invalid: invalid() }}
 			onInput={e => setEncoded((e.target as HTMLTextAreaElement).value)}
 		/>
-		<p><button type="button" onClick={() => setEncoded("")}>Clear</button></p>
+		<div><button type="button" onClick={() => setEncoded("")}>Clear</button></div>
 	</div>;
 }
 

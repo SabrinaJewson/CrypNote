@@ -24,3 +24,13 @@ textarea {
 	transition: opacity 0.3s;
 	opacity: 0;
 }
+
+.floating {
+	position: fixed;
+	bottom: 10px;
+	left: 10px;
+	border: 1px solid black;
+	border-radius: 5px;
+	padding: 30px;
+	background-color: white;
+}

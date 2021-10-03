@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
-import { createMemo, createResource, createSignal } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, mapArray, on } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 
@@ -16,13 +16,14 @@ import "./dashboard.scss";
 export default function(props: {
 	account: Store<UnlockedAccount>,
 	setAccount: SetStoreFunction<UnlockedAccount>,
+	scraped: boolean,
 	logOut: () => void,
 }): JSX.Element {
 	enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile }
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove
-	setScreen(Screen.Contacts);
+	setScreen(Screen.Decode);
 
 	const outerProps = props;
 
@@ -40,7 +41,12 @@ export default function(props: {
 
 	const ScreenPanel = (props: { variant: Screen, inner: (props: ScreenProps) => JSX.Element }): JSX.Element => {
 		return <div class="rightPanel" classList={{ shown: screen() === props.variant}}>
-			<Dynamic component={props.inner} account={outerProps.account} setAccount={outerProps.setAccount} />
+			<Dynamic
+				component={props.inner}
+				account={outerProps.account}
+				setAccount={outerProps.setAccount}
+				scraped={outerProps.scraped}
+			/>
 		</div>;
 	};
 
@@ -62,6 +68,7 @@ export default function(props: {
 }
 
 interface ScreenProps {
+	scraped: boolean,
 	account: Store<UnlockedAccount>,
 	setAccount: SetStoreFunction<UnlockedAccount>,
 }
@@ -122,7 +129,7 @@ function Decode(props: ScreenProps): JSX.Element {
 							You cannot read this message because you are not its intended recipient,
 							or the message was modified in transit.
 						</p>
-						: <DisplayMessage message={decoded_.message} />
+						: <DisplayMessage message={decoded_.message} scraped={props.scraped} />
 					}
 				</>;
 			}
@@ -156,7 +163,7 @@ function Decode(props: ScreenProps): JSX.Element {
 							/>
 						</div>
 					</Show>
-					<DisplayMessage message={decoded_.message} />
+					<DisplayMessage message={decoded_.message} scraped={false} />
 				</>;
 			}
 			if (decoded_.kind === DecodedKind.SharedContact) {
@@ -365,6 +372,89 @@ function MessageInput(props: { message: Message, setMessage: SetStoreFunction<Me
 	);
 }
 
-function DisplayMessage(props: { message: Message }): JSX.Element {
-	return <pre>{props.message.content}</pre>;
+function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
+	return createMemo(() => {
+		if (!props.scraped) {
+			return <pre>{props.message.content}</pre>;
+		}
+		const [width, setWidth] = createSignal(0);
+
+		const canvas = <canvas width={width()} /> as HTMLCanvasElement;
+		const container = <div class="messageDisplay">{canvas}</div> as HTMLDivElement;
+
+		new ResizeObserver(([entry]) => setWidth(entry.contentBoxSize[0].inlineSize)).observe(container);
+
+		const cx = canvas.getContext("2d", { alpha: false });
+		if (cx === null) {
+			return <p>Failed to set up renderer.</p>;
+		}
+
+		const whitespaceWidth = createMemo(on(
+			width,
+			() => {
+				cx.font = "13px monospace";
+				return cx.measureText(" ").width;
+			},
+			{ defer: true },
+		));
+
+		createEffect(on([width, whitespaceWidth, () => props.message.content], ([width, whitespaceWidth, message]) => {
+			cx.font = "13px monospace";
+
+			const lines = message.split("\n").map(line => {
+				return line.split(" ").map(part => {
+					return {
+						text: part,
+						width: cx.measureText(part).width,
+					};
+				});
+			});
+
+			const [newWidth, height] = wordWrap(lines, whitespaceWidth, width);
+			if (newWidth !== width) {
+				setWidth(newWidth);
+				return;
+			}
+			canvas.height = height;
+
+			cx.fillStyle = "white";
+			cx.fillRect(0, 0, width, height);
+
+			cx.fillStyle = "black";
+			cx.font = "13px monospace";
+
+			wordWrap(lines, whitespaceWidth, width, (fragment, x, y) => cx.fillText(fragment.text, x, y));
+		}, { defer: true }));
+
+		return container;
+	});
+}
+
+function wordWrap<T extends { width: number }>(
+	lines: T[][],
+	glue: number,
+	width: number,
+	f?: (fragment: T, x: number, y: number) => void,
+): [number, number] {
+	let maxX = width;
+	let x = 0;
+	let y = 12;
+	for (const line of lines) {
+		for (const fragment of line) {
+			if (x + fragment.width > width) {
+				x = 0;
+				y += 15;
+			}
+			if (f !== undefined) {
+				f(fragment, x, y);
+			}
+			x += fragment.width;
+			maxX = Math.max(maxX, x);
+			x += glue;
+		}
+
+		x = 0;
+		y += 15;
+	}
+	return [maxX, y];
 }

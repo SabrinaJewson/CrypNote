@@ -11,14 +11,6 @@ export function test(name: string, f: () => MaybePromise<void>): void {
 
 const tests: [string, () => MaybePromise<void>][] = [];
 
-if (process.env.NODE_ENV !== "production") {
-	const button = document.createElement("button");
-	button.type = "button";
-	button.append("Run tests");
-	button.addEventListener("click", () => void runTests());
-	document.body.append(button);
-}
-
 export async function runTests(): Promise<void> {
 	console.log(`Running ${tests.length} tests`);
 	
