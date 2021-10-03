@@ -4,8 +4,8 @@
 // CrypNote, as opposed to being potentially generic utilities.
 
 export * as db from "./db";
-export { Db } from "./db";
+export type { Db } from "./db";
 
-export { AccountPublic, LockedAccount, UnlockedAccount, createAccount, TamperedError } from "./account";
-export { Contact, SharedContact } from "./account";
+export { LockedAccount, SharedContact, TamperedError, createAccount } from "./account";
+export type { AccountPublic, Contact, UnlockedAccount } from "./account";
 export { IncorrectPassword } from "./password";
