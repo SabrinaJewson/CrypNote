@@ -1,11 +1,13 @@
 import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
-import { createEffect, createMemo, createResource, createSignal, mapArray, on } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, on } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 
-import { DecodedKind, InvalidFormatError, Message, MessageKind, NotForYouError, OutdatedError, SharedContact, UnlockedAccount, contactCard, decode, encryptMessage, signMessage } from "../stored";
+import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
 import { Exportable, Importable } from "./exportable";
+import { InvalidFormatError, OutdatedError } from "../serde";
+import { SharedContact, UnlockedAccount } from "../lib";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
 import { eq } from "../eq";

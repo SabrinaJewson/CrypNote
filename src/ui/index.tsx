@@ -3,7 +3,7 @@ import { SetStoreFunction, Store, createStore } from "solid-js/store";
 import { createEffect, createSignal } from "solid-js";
 import { JSX } from "solid-js";
 
-import { LoadStoredError, LockedAccount, Stored, UnlockedAccount, defaultStored, disabled, loadStored, storeStored } from "../stored";
+import { Db, LockedAccount, UnlockedAccount, db } from "../lib";
 import Accounts from "./accounts";
 import Dashboard from "./dashboard";
 import { runTests } from "../test";
@@ -11,14 +11,14 @@ import { runTests } from "../test";
 import "./base.scss";
 
 export default function(): JSX.Element {
-	const [stored, setStored] = createSignal<null | LoadStoredError | Stored>(null);
+	const [loaded, setLoaded] = createSignal<null | db.LoadError | Db>(null);
 
 	void (async () => {
 		try {
-			setStored(await loadStored());
+			setLoaded(await db.load());
 		} catch (e) {
-			if (e instanceof LoadStoredError) {
-				setStored(e);
+			if (e instanceof db.LoadError) {
+				setLoaded(e);
 				if (e.isUnexpected()) {
 					throw e.cause;
 				}
@@ -29,7 +29,7 @@ export default function(): JSX.Element {
 	})();
 
 	return <Switch>
-			<Match when={disabled()}>
+			<Match when={db.disabled()}>
 				<div class="disabled">
 					<h1>This website has been opened in another tab.</h1>
 					<p>
@@ -40,18 +40,18 @@ export default function(): JSX.Element {
 					<button type="button" onClick={() => location.reload()}>Reload</button>
 				</div>
 			</Match>
-			<Match when={stored() === null}>
+			<Match when={loaded() === null}>
 				<p>Loading...</p>
 			</Match>
-			<Match when={stored() instanceof LoadStoredError}>{(() => {
-				const error = stored as () => LoadStoredError;
+			<Match when={loaded() instanceof db.LoadError}>{() => {
+				const error = loaded as () => db.LoadError;
 				const [detailsShown, setDetailsShown] = createSignal(false);
 				return <>
 					<p>{error().topMessage()}</p>
 					<p>If you know have no useful information stored, you may delete all stored data using this button:</p>
 					<button type="button" class="warn" onClick={() => {
 						localStorage.removeItem("state");
-						setStored(defaultStored());
+						setLoaded(db.createDefault());
 					}}>Clear all stored data</button>
 					<p>
 						<button type="button" onClick={() => setDetailsShown(!detailsShown())}>
@@ -65,9 +65,9 @@ export default function(): JSX.Element {
 						<p>Stored: <code>{error().stored}</code></p>
 					</Show>
 				</>
-			})()}</Match>
+			}}</Match>
 			<Match when={true}>
-				<LoadedApp initialStored={stored() as Stored}/>
+				<LoadedApp initialDb={loaded() as Db}/>
 			</Match>
 	</Switch>;
 }
@@ -87,13 +87,13 @@ export class ReactiveAccount {
 	}
 }
 
-function LoadedApp(props: { initialStored: Stored }): JSX.Element {
-	const [accounts, setAccounts] = createSignal(props.initialStored.accounts.map(ReactiveAccount.new));
-	const [keylogged, setKeylogged] = createSignal(props.initialStored.keylogged);
-	const [scraped, setScraped] = createSignal(props.initialStored.scraped);
+function LoadedApp(props: { initialDb: Db }): JSX.Element {
+	const [accounts, setAccounts] = createSignal(props.initialDb.accounts.map(ReactiveAccount.new));
+	const [keylogged, setKeylogged] = createSignal(props.initialDb.keylogged);
+	const [scraped, setScraped] = createSignal(props.initialDb.scraped);
 
 	createEffect(() => {
-		storeStored({
+		db.store({
 			accounts: accounts().map(account => account.locked()),
 			keylogged: keylogged(),
 			scraped: scraped(),
