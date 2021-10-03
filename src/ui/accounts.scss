@@ -10,6 +10,10 @@
 		> .options {
 			border: 1px solid #AAA;
 
+			> p {
+				padding: 20px;
+			}
+
 			> .account {
 				padding: 20px;
 				background-color: white;
