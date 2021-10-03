@@ -4,10 +4,10 @@
 	"private": true,
 	"scripts": {
 		"check": "tsc -p tsconfig.json; eslint_d --ext .tsx,.ts .",
-		"build": "webpack --config webpack.dev.js",
-		"build-prod": "webpack --config webpack.prod.js",
-		"watch": "webpack --watch --config webpack.dev.js",
-		"watch-prod": "webpack --watch --config webpack.prod.js"
+		"build": "webpack --config webpack.config.js --node-env development",
+		"build-prod": "webpack --config webpack.config.js --node-env production",
+		"watch": "webpack watch --config webpack.config.js --node-env development",
+		"watch-prod": "webpack watch --config webpack.config.js --node-env production"
 	},
 	"devDependencies": {
 		"@babel/preset-env": "^7.15.6",
