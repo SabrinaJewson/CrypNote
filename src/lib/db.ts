@@ -9,6 +9,7 @@ import { LockedAccount } from "./account";
 
 export interface Db {
 	accounts: LockedAccount[],
+	accountBin: LockedAccount[],
 	keylogged: boolean,
 	scraped: boolean,
 }
@@ -68,6 +69,7 @@ export class LoadError {
 export function createDefault(): Db {
 	return {
 		accounts: [],
+		accountBin: [],
 		keylogged: true,
 		scraped: true,
 	};
@@ -75,10 +77,17 @@ export function createDefault(): Db {
 
 function write(writer: BytesMut, db: Db): void {
 	writeUint8(writer, 0); // version number
+
 	writeUint32(writer, db.accounts.length);
 	for (const account of db.accounts) {
 		account.writeTo(writer);
 	}
+
+	writeUint32(writer, db.accountBin.length);
+	for (const account of db.accountBin) {
+		account.writeTo(writer);
+	}
+
 	writeUint8(writer, Number(db.keylogged) << 1 | Number(db.scraped) << 0);
 }
 
@@ -91,10 +100,16 @@ async function read(reader: BytesReader): Promise<Db> {
 				accounts.push(await LockedAccount.readFrom(reader));
 			}
 
+			const accountBinLen = readUint32(reader);
+			const accountBin: LockedAccount[] = [];
+			for (let i = 0; i < accountBinLen; i += 1) {
+				accountBin.push(await LockedAccount.readFrom(reader));
+			}
+
 			const nextByte = readUint8(reader);
 			const keylogged = (nextByte & 2) !== 0;
 			const scraped = (nextByte & 1) !== 0;
-			return { accounts, keylogged, scraped };
+			return { accounts, accountBin, keylogged, scraped };
 		}
 		default: throw new OutdatedError();
 	}

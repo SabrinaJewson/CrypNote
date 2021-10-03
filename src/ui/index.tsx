@@ -75,6 +75,7 @@ export default function(): JSX.Element {
 export class ReactiveAccount {
 	private constructor(
 		public locked: () => LockedAccount,
+		public setLocked: (updated: LockedAccount) => void,
 		public update: (updated: UnlockedAccount) => void,
 	) {}
 
@@ -83,24 +84,28 @@ export class ReactiveAccount {
 		const update = updaterTask(async (updatedAccount: UnlockedAccount) => {
 			setLocked(await LockedAccount.lock(updatedAccount));
 		});
-		return new ReactiveAccount(locked, update);
+		return new ReactiveAccount(locked, setLocked, update);
 	}
 }
 
 function LoadedApp(props: { initialDb: Db }): JSX.Element {
 	const [accounts, setAccounts] = createSignal(props.initialDb.accounts.map(ReactiveAccount.new));
+	const [accountBin, setAccountBin] = createSignal(props.initialDb.accountBin);
 	const [keylogged, setKeylogged] = createSignal(props.initialDb.keylogged);
 	const [scraped, setScraped] = createSignal(props.initialDb.scraped);
 
 	createEffect(() => {
 		db.store({
 			accounts: accounts().map(account => account.locked()),
+			accountBin: accountBin(),
 			keylogged: keylogged(),
 			scraped: scraped(),
 		});
 	});
 
-	const [currentAccount, setCurrentAccount] = createSignal<null | [ReactiveAccount, Store<UnlockedAccount>, SetStoreFunction<UnlockedAccount>]>(null);
+	const [currentAccount, setCurrentAccount] = createSignal<
+		null | [ReactiveAccount, Store<UnlockedAccount>, SetStoreFunction<UnlockedAccount>]
+	>(null);
 
 	createEffect(() => {
 		const currentAccount_ = currentAccount();
@@ -123,9 +128,11 @@ function LoadedApp(props: { initialDb: Db }): JSX.Element {
 				<Accounts
 					accounts={accounts()}
 					setAccounts={setAccounts}
-					onLogin={(i, unlocked) => {
+					accountBin={accountBin()}
+					setAccountBin={setAccountBin}
+					onLogin={(account, unlocked) => {
 						const [unlockedAccount, setUnlockedAccount] = createStore(unlocked);
-						setCurrentAccount([accounts()[i], unlockedAccount, setUnlockedAccount]);
+						setCurrentAccount([account, unlockedAccount, setUnlockedAccount]);
 					}}
 				/>
 			</Match>

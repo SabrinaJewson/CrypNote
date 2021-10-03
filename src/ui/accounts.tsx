@@ -1,5 +1,5 @@
 import { Match, Show, Switch } from "solid-js";
-import { createEffect, createMemo, createResource, createSignal, on } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal } from "solid-js";
 import { JSX } from "solid-js";
 
 import { Bytes, BytesReader } from "../bytes";
@@ -16,113 +16,141 @@ import "./accounts.scss";
 export default function(props: {
 	accounts: ReactiveAccount[],
 	setAccounts: (updater: (old: ReactiveAccount[]) => ReactiveAccount[]) => void,
-	onLogin: (i: number, unlocked: UnlockedAccount) => void,
+	accountBin: LockedAccount[],
+	setAccountBin: (updater: (old: LockedAccount[]) => LockedAccount[]) => void,
+	onLogin: (account: ReactiveAccount, unlocked: UnlockedAccount) => void,
 }): JSX.Element {
-	const creating: unique symbol = Symbol();
-	const importing: unique symbol = Symbol();
-	const [selected, setSelected] = createSignal<number | null | typeof creating | typeof importing>(null);
-	//setSelected(0); // TODO: remove
+	enum SelectedPage { Create, Import }
+	const [selected, setSelected] = createSignal<null | SelectedPage | ReactiveAccount | LockedAccount>(null);
+
+	const [binShown, showBin] = createSignal(false);
 
 	return <div class="accounts">
 		<div class="left">
-			<div class="options">
-				<OrderableList
-					list={props.accounts}
-					setList={props.setAccounts}
-					fallback={<p>No accounts</p>}
-				>{(account, i, preDrag, isDragged, Handle, hovered) => {
-					createEffect(on([selected, i], ([selected, i], old) => {
-						if (old === undefined) {
-							return;
-						}
-						const [oldSelected, oldI] = old;
-						// If our index was changed and we were selected, update the selected index
-						// too.
-						if (oldI !== i && oldSelected === selected && oldSelected === oldI) {
-							setSelected(i);
-						}
-					}));
+			<Show when={!binShown()}>
+				<div class="options">
+					<OrderableList
+						list={props.accounts}
+						setList={props.setAccounts}
+						fallback={<p>No accounts</p>}
+					>{(account, _i, preDrag, isDragged, Handle, hovered) => {
+						return <div
+							class="account"
+							classList={{
+								active: selected() === account,
+								preDrag: preDrag(),
+								dragged: isDragged(),
+								hovered: hovered(),
+							}}
+							onClick={() => setSelected(selected => selected === account ? null : account)}
+						>
+							<Handle />
+							<span>{account.locked().publicData.name}</span>
+						</div> as HTMLElement;
+					}}</OrderableList>
+				</div>
+				<button type="button" onClick={() => setSelected(SelectedPage.Create)}>Create account</button>
+				<button type="button" onClick={() => setSelected(SelectedPage.Import)}>Import account</button>
+				<button type="button" onClick={() => showBin(true)}>Show account bin</button>
+			</Show>
+			<Show when={binShown()}>
+				<div onClick={() => showBin(false)}>Back</div>
+				<div class="options">
+					<OrderableList
+						list={props.accountBin}
+						setList={props.setAccountBin}
+						fallback={<p>Account bin is empty.</p>}
+					>{(account, _i, preDrag, isDragged, Handle, hovered) => {
+						return <div
+							class="account"
+							classList={{
+								active: selected() === account,
+								preDrag: preDrag(),
+								dragged: isDragged(),
+								hovered: hovered(),
+							}}
+							onClick={() => setSelected(selected => selected === account ? null : account)}
+						>
+							<Handle />
+							<span>{account.publicData.name}</span>
+						</div> as HTMLElement;
+					}}</OrderableList>
+				</div>
+			</Show>
+		</div>
+		<div class="content">{() => {
+			const selected_ = selected();
 
-					return <div
-						class="account"
-						classList={{
-							active: selected() === i(),
-							preDrag: preDrag(),
-							dragged: isDragged(),
-							hovered: hovered(),
-						}}
-						onClick={() => setSelected(selected => i() === selected ? null : i())}
-					>
-						<Handle />
-						<span>{account.locked().publicData.name}</span>
-					</div> as HTMLElement;
-				}}</OrderableList>
-			</div>
-			<button type="button" onClick={() => setSelected(creating)}>Create account</button>
-			<button type="button" onClick={() => setSelected(importing)}>Import account</button>
-		</div>
-		<div class="content">
-			<Switch>
-				<Match when={typeof selected() === "number"}>
-					<Account
-						account={props.accounts[selected() as number].locked()}
-						onLogin={unlocked => props.onLogin(selected() as number, unlocked)}
-						onDelete={() => {
-							const i = selected() as number;
-							setSelected(null);
-							props.setAccounts(accounts => [...accounts.slice(0, i), ...accounts.slice(i + 1)]);
-						}}
-					/>
-				</Match>
-				<Match when={selected() === creating}>
-					<CreateAccount onCreated={async inputs => {
-						const account = ReactiveAccount.new(await LockedAccount.lock(
-							await createAccount(inputs.name, inputs.password)
-						));
+			if (selected_ instanceof ReactiveAccount) {
+				return <Account
+					account={selected_.locked()}
+					onLogin={unlocked => props.onLogin(selected_, unlocked)}
+					onDelete={() => {
+						setSelected(null);
+						props.setAccounts(accounts => arrayRemove(accounts, selected_));
+						props.setAccountBin(bin => [...bin, selected_.locked()]);
+					}}
+				/>;
+			}
+
+			if (selected_ instanceof LockedAccount) {
+				return <>
+					<p>Account name: {selected_.publicData.name}</p>
+					<p>Public key: <code>{selected_.publicData.dsaPublicKey.toString()}</code></p>
+					<p><button type="button" onClick={() => {
+						const account = ReactiveAccount.new(selected_);
 						props.setAccounts(accounts => [...accounts, account]);
-						setSelected(props.accounts.length - 1);
-					}} />
-				</Match>
-				<Match when={selected() === importing}>
-					<ImportAccount accounts={props.accounts} onImported={(imported, i) => {
-						const account = ReactiveAccount.new(imported);
-						props.setAccounts(accounts => {
-							const newAccounts = [...accounts];
-							newAccounts[i] = account;
-							return newAccounts;
-						});
-						setSelected(i);
-					}} />
-				</Match>
-				<Match when={true}>
-				</Match>
-			</Switch>
-		</div>
-		{/*
-		<Switch>
-			<Match when={creatingAccount()}>
-				<a onClick={() => setCreatingAccount(false)}>Back</a>
-				<CreateAccount onCreated={async inputs => {
+						props.setAccountBin(bin => arrayRemove(bin, selected_));
+						setSelected(account);
+						showBin(false);
+					}}>Restore account</button></p>
+					<p><button type="button" class="warn" onClick={() => {
+						props.setAccountBin(bin => arrayRemove(bin, selected_));
+						setSelected(null);
+					}}>Permanently delete account</button></p>
+					<p>Exported data:</p>
+					<Exportable data={Bytes.buildWith(writer => selected_.writeTo(writer))} />
+				</>;
+			}
+
+			if (selected_ === SelectedPage.Create) {
+				return <CreateAccount onCreated={async inputs => {
 					const account = ReactiveAccount.new(await LockedAccount.lock(
 						await createAccount(inputs.name, inputs.password)
 					));
 					props.setAccounts(accounts => [...accounts, account]);
-					setCreatingAccount(false);
+					setSelected(account);
 				}} />
-			</Match>
-			<Match when={loggingIn() !== null}>
-				<a onClick={() => setLoggingIn(null)}>Back</a>
-				<Login
-					account={props.accounts[loggingIn()!].locked()}
-					onSuccess={unlocked => props.onLogin(loggingIn()!, unlocked)}
-				/>
-			</Match>
-			<Match when={true}>
-				<AccountSelection accounts={props.accounts} onSelected={i => setLoggingIn(i)} />
-				<button type="button" onClick={() => setCreatingAccount(true)}>Create account</button>
-			</Match>
-		</Switch>
-		  */}
+			}
+
+			if (selected_ === SelectedPage.Import) {
+				return <ImportAccount
+					accounts={props.accounts}
+					accountBin={props.accountBin}
+					onImport={imported => {
+						const account = ReactiveAccount.new(imported);
+						props.setAccounts(accounts => [...accounts, account]);
+						setSelected(account);
+					}}
+					onReplace={(imported, i) => {
+						props.accounts[i].setLocked(imported);
+						setSelected(props.accounts[i]);
+					}}
+					onRestore={(imported, i) => {
+						props.setAccountBin(bin => [...bin.slice(0, i), ...bin.slice(i + 1)]);
+						const account = ReactiveAccount.new(imported);
+						props.setAccounts(accounts => [...accounts, account]);
+						setSelected(account);
+					}}
+				/>;
+			}
+
+			if (selected_ === null) {
+				return <></>;
+			}
+
+			exhausted(selected_);
+		}}</div>
 	</div>;
 }
 
@@ -208,7 +236,10 @@ function CreateAccount(props: { onCreated: (account: { name: string, password: s
 
 function ImportAccount(props: {
 	accounts: ReactiveAccount[],
-	onImported: (account: LockedAccount, index: number) => void,
+	accountBin: LockedAccount[],
+	onImport: (account: LockedAccount) => void,
+	onReplace: (account: LockedAccount, index: number) => void,
+	onRestore: (account: LockedAccount, index: number) => void,
 }): JSX.Element {
 	const [data, setData] = createSignal(Bytes.new());
 	const [account] = createResource(data, async data => {
@@ -230,23 +261,33 @@ function ImportAccount(props: {
 			}
 		}
 	});
-	const accountIndex = createMemo(() => {
+
+	enum OperationKind { Import, Replace, Restore }
+
+	const operation = createMemo(() => {
 		const account_ = account();
 		if (account_ instanceof LockedAccount) {
-			const i = props.accounts.findIndex(a => eq(a.locked(), account_));
-			if (i !== -1) {
-				return i;
+			const accountsIndex = props.accounts.findIndex(a => eq(a.locked(), account_));
+			if (accountsIndex !== -1) {
+				return {
+					kind: OperationKind.Replace,
+					run: () => props.onReplace(account_, accountsIndex),
+				};
 			}
+
+			const binIndex = props.accountBin.findIndex(a => eq(a, account_));
+			if (binIndex !== -1) {
+				return {
+					kind: OperationKind.Restore,
+					run: () => props.onRestore(account_, binIndex),
+				};
+			}
+
+			return { kind: OperationKind.Import, run: () => props.onImport(account_) };
 		}
 	});
 
-	return <form action="javascript:void(0)" onSubmit={() => {
-		const account_ = account();
-		if (!(account_ instanceof LockedAccount)) {
-			return;
-		}
-		props.onImported(account_, accountIndex() ?? props.accounts.length);
-	}}>
+	return <form action="javascript:void(0)" onSubmit={() => operation()?.run()}>
 		<h1>Import an account</h1>
 		<p>Enter the exported account data below.</p>
 		<Importable rows={25} setData={setData} />
@@ -262,15 +303,23 @@ function ImportAccount(props: {
 					<p>Account name: {account_.publicData.name}</p>
 					<p>Public key: <code>{account_.publicData.dsaPublicKey.toString()}</code></p>
 					<Switch>
-						<Match when={props.accounts.some(a => eq(a.locked(), account_))}>
+						<Match when={operation()?.kind === OperationKind.Import}>
+							<button>Import new account</button>
+						</Match>
+						<Match when={operation()?.kind === OperationKind.Replace}>
 							<p>
 								You already have this account imported. You may replace the stored
 								one with this version.
 							</p>
 							<button>Replace existing account</button>
 						</Match>
-						<Match when={true}>
-						<button>Import new account</button>
+						<Match when={operation()?.kind === OperationKind.Restore}>
+							<p>
+								You have this account in your account bin. You may restore the
+								account and replace it with this version. Alternatively, if you
+								enter your account bin you can restore it but not replace it.
+							</p>
+							<button>Restore and replace</button>
 						</Match>
 					</Switch>
 				</>;
@@ -287,4 +336,14 @@ function ImportAccount(props: {
 			exhausted(account_);
 		}}
 	</form>;
+}
+
+function arrayRemove<T>(array: readonly T[], remove: T): T[] {
+	const updated: T[] = [];
+	for (const item of array) {
+		if (item !== remove) {
+			updated.push(item);
+		}
+	}
+	return updated;
 }
