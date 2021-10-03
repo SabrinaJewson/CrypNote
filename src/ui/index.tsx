@@ -6,6 +6,7 @@ import { JSX } from "solid-js";
 import { LoadStoredError, LockedAccount, Stored, UnlockedAccount, defaultStored, disabled, loadStored, storeStored } from "../stored";
 import Accounts from "./accounts";
 import Dashboard from "./dashboard";
+import { runTests } from "../test";
 
 import "./base.scss";
 
@@ -114,6 +115,7 @@ function LoadedApp(props: { initialStored: Stored }): JSX.Element {
 				<Dashboard
 					account={currentAccount()![1]}
 					setAccount={currentAccount()![2]}
+					scraped={scraped()}
 					logOut={() => setCurrentAccount(null)}
 				/>
 			</Match>
@@ -129,14 +131,17 @@ function LoadedApp(props: { initialStored: Stored }): JSX.Element {
 			</Match>
 		</Switch>
 
-		<p><label>
-			Enable keylogger protection:
-			<input type="checkbox" checked={keylogged()} onInput={e => setKeylogged((e.target as HTMLInputElement).checked)} />
-		</label></p>
-		<p><label>
-			Enable scraper protection:
-			<input type="checkbox" checked={scraped()} onInput={e => setScraped((e.target as HTMLInputElement).checked)} />
-		</label></p>
+		<div class="floating">
+			<p><label>
+				Enable keylogger protection:
+				<input type="checkbox" checked={keylogged()} onInput={e => setKeylogged((e.target as HTMLInputElement).checked)} />
+			</label></p>
+			<p><label>
+				Enable scraper protection:
+				<input type="checkbox" checked={scraped()} onInput={e => setScraped((e.target as HTMLInputElement).checked)} />
+			</label></p>
+			<button type="button" onClick={() => void runTests()}>Run tests</button>
+		</div>
 	</>;
 }
 
