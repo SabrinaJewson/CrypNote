@@ -4,7 +4,8 @@ import { JSX } from "solid-js";
 
 import { Bytes, BytesReader } from "../bytes";
 import { Exportable, Importable } from "./exportable";
-import { IncorrectPassword, InvalidFormatError, LockedAccount, OutdatedError, TamperedError, UnlockedAccount, createAccount } from "../stored";
+import { IncorrectPassword, LockedAccount, TamperedError, UnlockedAccount, createAccount } from "../lib";
+import { InvalidFormatError, OutdatedError } from "../serde";
 import OrderableList from "./orderableList";
 import { ReactiveAccount } from ".";
 import { eq } from "../eq";
