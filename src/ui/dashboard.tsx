@@ -6,8 +6,9 @@ import { JSX } from "solid-js";
 
 import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
 import { Exportable, Importable } from "./exportable";
+import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
-import { SharedContact, UnlockedAccount } from "../lib";
+import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
 import { eq } from "../eq";
@@ -25,7 +26,7 @@ export default function(props: {
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove
-	setScreen(Screen.Decode);
+	setScreen(Screen.UserProfile);
 
 	const outerProps = props;
 
@@ -346,6 +347,15 @@ function UserProfile(props: ScreenProps): JSX.Element {
 		return contactCard(await SharedContact.ofAccount(props.account));
 	});
 
+	const check = (e: InputEvent): void => {
+		const form = (e.target as HTMLInputElement).form!;
+		const newPassword = form.elements.namedItem("new") as HTMLInputElement;
+		const confirmPassword = form.elements.namedItem("confirm") as HTMLInputElement;
+		confirmPassword.setCustomValidity(newPassword.value === confirmPassword.value ? "" : "Passwords do not match");
+	};
+
+	const changedPassword = new FadingState();
+
 	return <>
 		<h1>User Profile</h1>
 		<label>Name: <input
@@ -361,6 +371,20 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				also be attached to every message you encrypt or sign.
 			</p>
 		</Show>
+		<form action="javascript:void(0)" onSubmit={e => {
+			const elements = (e.target as HTMLFormElement).elements;
+			const newPassword = elements.namedItem("new") as HTMLInputElement;
+			void (async () => {
+				props.setAccount("password", await UnlockedPassword.new(newPassword.value));
+				changedPassword.show();
+			})();
+		}}>
+			<h2>Change password</h2>
+			<p><label>New password: <input type="password" name="new" required onInput={check} /></label></p>
+			<p><label>Confirm new password: <input type="password" name="confirm" required onInput={check} /></label></p>
+			<button>Change password</button>
+			<Fading state={changedPassword}>{<p>Changed password!</p> as HTMLElement}</Fading>
+		</form>
 	</>;
 }
 

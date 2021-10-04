@@ -8,4 +8,4 @@ export type { Db } from "./db";
 
 export { LockedAccount, SharedContact, TamperedError, createAccount } from "./account";
 export type { AccountPublic, Contact, UnlockedAccount } from "./account";
-export { IncorrectPassword } from "./password";
+export { UnlockedPassword, IncorrectPassword } from "./password";
