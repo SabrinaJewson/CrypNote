@@ -22,6 +22,8 @@ export default function(props: {
 }): JSX.Element {
 	enum SelectedPage { Create, Import }
 	const [selected, setSelected] = createSignal<null | SelectedPage | ReactiveAccount | LockedAccount>(null);
+	// TODO: remove
+	setSelected(props.accounts[0]);
 
 	const [binShown, showBin] = createSignal(false);
 
@@ -179,9 +181,9 @@ function Account(props: {
 	});
 
 	// TODO: remove
-	// void (async () => {
-	// 	props.onLogin(await props.account.unlock("a"));
-	// })();
+	void (async () => {
+		props.onLogin(await props.account.unlock("a"));
+	})();
 
 	return <>
 		<form action="javascript:void(0)" onSubmit={e => {

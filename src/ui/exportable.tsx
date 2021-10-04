@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal } from "solid-js";
 import { JSX } from "solid-js";
-import { Show } from "solid-js";
 
+import { Fading, FadingState } from "./fading";
 import { base64UrlDecode, base64UrlEncode } from "../base64";
 import { Bytes } from "../bytes";
 
@@ -9,10 +9,17 @@ import "./exportable.scss";
 
 export function Exportable(props: { data: Bytes }): JSX.Element {
 	const data = createMemo(() => base64UrlEncode(props.data));
+	const copied = new FadingState();
 
 	return <div class="exportable">
 		<pre>{data()}</pre>
-		<CopyButton data={data()} />
+		<button type="button" onClick={() => {
+			void (async () => {
+				await navigator.clipboard.writeText(data());
+				copied.show();
+			})();
+		}}>Click to copy</button>
+		<Fading state={copied}>{<span> Copied!</span> as HTMLElement}</Fading>
 	</div>;
 }
 
@@ -41,36 +48,4 @@ export function Importable(props: { rows: number, setData: (data: Bytes) => void
 		/>
 		<div><button type="button" onClick={() => setEncoded("")}>Clear</button></div>
 	</div>;
-}
-
-function CopyButton(props: { data: string }): JSX.Element {
-	enum CopiedState { Initial, Shown, Fading }
-	type Copied = never
-		| { state: CopiedState.Initial }
-		| { state: CopiedState.Shown, timer: number }
-		| { state: CopiedState.Fading };
-	const [copied, setCopied] = createSignal<Copied>({ state: CopiedState.Initial });
-
-	return <>
-		<button type="button" onClick={() => {
-			void (async () => {
-				await navigator.clipboard.writeText(props.data);
-				const timer = window.setTimeout(() => {
-					setCopied({ state: CopiedState.Fading });
-				}, 300);
-				setCopied(old => {
-					if (old.state === CopiedState.Shown) {
-						window.clearTimeout(old.timer);
-					}
-					return { state: CopiedState.Shown, timer };
-				});
-			})();
-		}}>Click to copy</button>
-		<Show when={copied().state !== CopiedState.Initial}>
-			<span
-				classList={{ fade: copied().state === CopiedState.Fading }}
-				onTransitionEnd={() => setCopied({ state: CopiedState.Initial })}
-			> Copied!</span>
-		</Show>
-	</>;
 }
