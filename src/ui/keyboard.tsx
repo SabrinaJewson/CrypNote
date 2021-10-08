@@ -71,7 +71,7 @@ const layout: Key[][] = buildLayout([
 		{ width: 2, normal: { display: "⌫", function: "\x08" } },
 	],
 	[
-		{ width: 1.5, normal: "Steve" },
+		{ width: 1.5, normal: { display: "↹", function: "\x09" } },
 		{ width: 1, normal: "q", shift: "Q" },
 		{ width: 1, normal: "w", shift: "W" },
 		{ width: 1, normal: "e", shift: "E" },
