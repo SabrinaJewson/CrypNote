@@ -6,11 +6,41 @@ import { JSX } from "solid-js";
 import { Db, LockedAccount, UnlockedAccount, db } from "../lib";
 import Accounts from "./accounts";
 import Dashboard from "./dashboard";
+import KeyboardEl from "./keyboard";
 import { runTests } from "../test";
 
 import "./base.scss";
 
+export interface Keyboard {
+	show: (handler: KeyboardHandler) => void,
+	hide: () => void,
+}
+
+export interface KeyboardHandler {
+	onInput: (input: string) => void,
+}
+
 export default function(): JSX.Element {
+	const [keyboardHandler, setKeyboardHandler] = createSignal<null | KeyboardHandler>(null);
+
+	return <>
+		<MainApp keyboard={{
+			show: setKeyboardHandler,
+			hide: () => setKeyboardHandler(null),
+		}} />
+		{() => {
+			const handler = keyboardHandler();
+			if (handler !== null) {
+				return <KeyboardEl
+					onInput={key => handler.onInput(key)}
+					onClose={() => setKeyboardHandler(null)}
+				/>;
+			}
+		}}
+	</>;
+}
+
+function MainApp(props: { keyboard: Keyboard }): JSX.Element {
 	const [loaded, setLoaded] = createSignal<null | db.LoadError | Db>(null);
 
 	void (async () => {
@@ -28,7 +58,8 @@ export default function(): JSX.Element {
 		}
 	})();
 
-	return <Switch>
+	return <div class="mainApp">
+		<Switch>
 			<Match when={db.disabled()}>
 				<div class="disabled">
 					<h1>This website has been opened in another tab.</h1>
@@ -67,9 +98,10 @@ export default function(): JSX.Element {
 				</>
 			}}</Match>
 			<Match when={true}>
-				<LoadedApp initialDb={loaded() as Db}/>
+				<LoadedApp initialDb={loaded() as Db} keyboard={props.keyboard} />
 			</Match>
-	</Switch>;
+		</Switch>
+	</div>;
 }
 
 export class ReactiveAccount {
@@ -88,7 +120,7 @@ export class ReactiveAccount {
 	}
 }
 
-function LoadedApp(props: { initialDb: Db }): JSX.Element {
+function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 	const [accounts, setAccounts] = createSignal(props.initialDb.accounts.map(ReactiveAccount.new));
 	const [accountBin, setAccountBin] = createSignal(props.initialDb.accountBin);
 	const [keylogged, setKeylogged] = createSignal(props.initialDb.keylogged);
@@ -120,8 +152,10 @@ function LoadedApp(props: { initialDb: Db }): JSX.Element {
 				<Dashboard
 					account={currentAccount()![1]}
 					setAccount={currentAccount()![2]}
+					keylogged={keylogged()}
 					scraped={scraped()}
 					logOut={() => setCurrentAccount(null)}
+					keyboard={props.keyboard}
 				/>
 			</Match>
 			<Match when={currentAccount() === null}>
@@ -138,7 +172,7 @@ function LoadedApp(props: { initialDb: Db }): JSX.Element {
 			</Match>
 		</Switch>
 
-		<div class="floating">
+		<div>
 			<p><label>
 				Enable keylogger protection:
 				<input type="checkbox" checked={keylogged()} onInput={e => setKeylogged((e.target as HTMLInputElement).checked)} />

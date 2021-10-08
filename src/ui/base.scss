@@ -23,11 +23,6 @@ textarea {
 	width: 100%;
 }
 
-.fade {
-	transition: opacity 0.3s;
-	opacity: 0;
-}
-
 .floating {
 	position: fixed;
 	bottom: 10px;
@@ -36,4 +31,11 @@ textarea {
 	border-radius: 5px;
 	padding: 30px;
 	background-color: white;
+}
+
+#app {
+	> .keyboard {
+		position: sticky;
+		bottom: 0;
+	}
 }

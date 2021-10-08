@@ -2,6 +2,8 @@ import { createEffect, createSignal } from "solid-js";
 import { JSX } from "solid-js";
 import { Show } from "solid-js";
 
+import "./fading.scss";
+
 enum FadingStage { Initial, Shown, Fading }
 type FadingStateInner = never
 	| { stage: FadingStage.Initial }

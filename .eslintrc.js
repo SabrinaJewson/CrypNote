@@ -59,6 +59,7 @@ module.exports = {
 			rules: {
 				"@typescript-eslint/explicit-function-return-type": ["warn", { allowExpressions: true }],
 				"@typescript-eslint/no-inferrable-types": ["warn", { ignoreParameters: true }],
+				"@typescript-eslint/no-namespace": "off",
 				"@typescript-eslint/no-non-null-assertion": "off",
 				"@typescript-eslint/no-unused-vars": ["warn", { varsIgnorePattern: "^_", argsIgnorePattern: "^_" }],
 				"react/jsx-uses-vars": 2,

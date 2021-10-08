@@ -1,0 +1,35 @@
+.keyboard {
+	width: 100%;
+
+	background-color: #AAA;
+
+	> div {
+		display: flex;
+		flex-flow: row nowrap;
+
+		> .key {
+			user-select: none;
+
+			> div {
+				height: 50px;
+
+				margin: 3px;
+				border-radius: 5px;
+				background-color: #EEE;
+
+				text-align: center;
+				line-height: 50px;
+
+				font-size: 20px;
+
+				&.held {
+					background-color: #CCC;
+				}
+
+				&:active {
+					background-color: #CCC;
+				}
+			}
+		}
+	}
+}
