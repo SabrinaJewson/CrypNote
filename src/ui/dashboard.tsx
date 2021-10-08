@@ -466,6 +466,7 @@ function MessageInput(props: {
 			}}
 			onInput={() => props.setMessage("content", area.value)}
 			onFocus={() => props.keyboard.show(handler)}
+			onClick={() => props.keyboard.show(handler)}
 			onBlur={() => {
 				if (area !== document.activeElement) {
 					props.keyboard.hide();
