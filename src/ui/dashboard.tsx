@@ -8,6 +8,7 @@ import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode,
 import { Exportable, Importable } from "./exportable";
 import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
+import { Keyboard, KeyboardHandler } from ".";
 import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
@@ -19,14 +20,16 @@ import "./dashboard.scss";
 export default function(props: {
 	account: Store<UnlockedAccount>,
 	setAccount: SetStoreFunction<UnlockedAccount>,
+	keylogged: boolean,
 	scraped: boolean,
 	logOut: () => void,
+	keyboard: Keyboard,
 }): JSX.Element {
 	enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile }
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove
-	setScreen(Screen.UserProfile);
+	setScreen(Screen.Encrypt);
 
 	const outerProps = props;
 
@@ -48,7 +51,9 @@ export default function(props: {
 				component={props.inner}
 				account={outerProps.account}
 				setAccount={outerProps.setAccount}
+				keylogged={outerProps.keylogged}
 				scraped={outerProps.scraped}
+				keyboard={outerProps.keyboard}
 			/>
 		</div>;
 	};
@@ -71,9 +76,11 @@ export default function(props: {
 }
 
 interface ScreenProps {
+	keylogged: boolean,
 	scraped: boolean,
 	account: Store<UnlockedAccount>,
 	setAccount: SetStoreFunction<UnlockedAccount>,
+	keyboard: Keyboard,
 }
 
 function Decode(props: ScreenProps): JSX.Element {
@@ -275,7 +282,13 @@ function Encrypt(props: ScreenProps): JSX.Element {
 				return <option value={i().toString()}>{contact.nickname}</option>;
 			}}</For>
 		</select></label></p>
-		<MessageInput message={message} setMessage={setMessage} />
+		<MessageInput
+			keylogged={props.keylogged}
+			scraped={props.scraped}
+			message={message}
+			setMessage={setMessage}
+			keyboard={props.keyboard}
+		/>
 		<Show when={encrypted() !== undefined} fallback={<p>Select an account to receive the message.</p>}>
 			<button type="button" onClick={regenerate}>Regenerate</button>
 			<Exportable data={encrypted()!} />
@@ -299,7 +312,13 @@ function Sign(props: ScreenProps): JSX.Element {
 			created a signed message, it is possible for anyone to read the message and prove to
 			both themselves and anyone else that it was you who wrote it.
 		</p>
-		<MessageInput message={message} setMessage={setMessage} />
+		<MessageInput
+			keylogged={false}
+			scraped={false}
+			message={message}
+			setMessage={setMessage}
+			keyboard={props.keyboard}
+		/>
 		<Show when={signed() !== undefined} fallback={<p>Loading...</p>}>
 			<Exportable data={signed()!} />
 		</Show>
@@ -388,14 +407,72 @@ function UserProfile(props: ScreenProps): JSX.Element {
 	</>;
 }
 
-function MessageInput(props: { message: Message, setMessage: SetStoreFunction<Message> }): JSX.Element {
-	return (
-		<textarea
+function MessageInput(props: {
+	keylogged: boolean,
+	scraped: boolean,
+	message: Message,
+	setMessage: SetStoreFunction<Message>,
+	keyboard: Keyboard,
+}): JSX.Element {
+	return createMemo(() => {
+		if (!props.keylogged) {
+			return <textarea
+				rows="12"
+				value={props.message.content}
+				onInput={e => props.setMessage("content", (e.target as HTMLTextAreaElement).value)}
+			/>;
+		}
+
+		let area!: HTMLTextAreaElement;
+
+		const handler: KeyboardHandler = {
+			onInput: input => {
+				const selectionStart = area.selectionStart;
+				const selectionEnd = area.selectionEnd;
+				if (input === "\b") {
+					if (selectionStart === selectionEnd) {
+						if (selectionStart !== 0) {
+							props.setMessage("content", content => {
+								return content.slice(0, selectionStart - 1) + content.slice(selectionStart);
+							});
+							area.selectionStart = selectionStart - 1;
+							area.selectionEnd = selectionEnd - 1;
+						}
+					} else {
+						props.setMessage("content", content => {
+							return content.slice(0, selectionStart) + content.slice(selectionEnd);
+						});
+						area.selectionEnd = selectionStart;
+					}
+				} else {
+					props.setMessage("content", content => {
+						return content.slice(0, selectionStart) + input + content.slice(selectionEnd);
+					});
+					area.selectionStart = selectionStart + input.length;
+					area.selectionEnd = selectionStart + input.length;
+				}
+			},
+		};
+
+		return <textarea
+			ref={area}
 			rows="12"
 			value={props.message.content}
-			onInput={e => props.setMessage("content", (e.target as HTMLTextAreaElement).value)}
-		/>
-	);
+			on:beforeinput={e => {
+				// Prevent undo and redo because it doesn't work with the custom keyboard.
+				if (e.inputType === "insertText" || e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+					e.preventDefault();
+				}
+			}}
+			onInput={() => props.setMessage("content", area.value)}
+			onFocus={() => props.keyboard.show(handler)}
+			onBlur={() => {
+				if (area !== document.activeElement) {
+					props.keyboard.hide();
+				}
+			}}
+		/>;
+	});
 }
 
 function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
@@ -483,4 +560,12 @@ function wordWrap<T extends { width: number }>(
 		y += 15;
 	}
 	return [maxX, y];
+}
+
+declare module "solid-js" {
+	namespace JSX {
+		interface CustomEvents {
+			beforeinput: InputEvent,
+		}
+	}
 }
