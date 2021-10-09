@@ -501,14 +501,20 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 
 		createEffect(on([width, () => props.message.content], ([width, message]) => {
 			const fontSize = 13;
-			const lineHeight = 1.2;
+			const lineHeight = Math.floor(1.2 * fontSize);
 
 			cx.font = `${fontSize}px monospace`;
 
-			const charMetrics = cx.measureText("⚧");
-			const column = charMetrics.width;
-			const ascent = charMetrics.fontBoundingBoxAscent ?? charMetrics.actualBoundingBoxAscent;
-			const descent = charMetrics.fontBoundingBoxDescent ?? charMetrics.actualBoundingBoxDescent;
+			const spaceMetrics = cx.measureText(" ");
+			const column = spaceMetrics.width;
+
+			// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring the
+			// actual bounding box of characters that (on my font) have a bounding box very close to
+			// that of the font's.
+			const ascent = spaceMetrics.fontBoundingBoxAscent
+				?? cx.measureText("Ã").actualBoundingBoxAscent;
+			const descent = spaceMetrics.fontBoundingBoxDescent
+				?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
 
 			const fragments = (function*(): Generator<{ box: string } & Fragment> {
 				const lines = { [Symbol.iterator]: () => lineBreaker(message) };
@@ -540,13 +546,11 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 				}
 			})();
 
-			const { positionedFragments, extendedWidth, height } = wordWrap(
-				fragments,
-				ascent,
-				descent,
-				Math.floor(lineHeight * fontSize),
-				width,
-			);
+			const {
+				positionedFragments,
+				extendedWidth,
+				height,
+			} = wordWrap(fragments, ascent, descent, lineHeight, width);
 
 			if (extendedWidth !== width) {
 				setWidth(extendedWidth);
