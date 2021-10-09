@@ -1,5 +1,6 @@
 {
 	"compilerOptions": {
+		"esModuleInterop": true,
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
 		"module": "ESNext",
