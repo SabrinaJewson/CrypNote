@@ -77,14 +77,19 @@
 			border-radius: 5px;
 			padding: 0 10px;
 		}
+
 	}
 }
 
-.messageDisplay {
+div.messageDisplay {
 	> canvas {
+		display: block;
 		width: 100%;
 	}
 }
-pre {
+pre.messageDisplay {
+	margin: 0;
 	white-space: pre-wrap;
+	font-size: 13px;
+	line-height: 1.2;
 }

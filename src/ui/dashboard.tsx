@@ -3,6 +3,8 @@ import { SetStoreFunction, Store, createStore } from "solid-js/store";
 import { createEffect, createMemo, createResource, createSignal, on } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
+import graphemeSplit from "graphemesplit";
+import { LineBreaker as lineBreaker } from "css-line-break";
 
 import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
 import { Exportable, Importable } from "./exportable";
@@ -29,7 +31,7 @@ export default function(props: {
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove
-	setScreen(Screen.Encrypt);
+	setScreen(Screen.Decode);
 
 	const outerProps = props;
 
@@ -479,88 +481,138 @@ function MessageInput(props: {
 function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
 	return createMemo(() => {
 		if (!props.scraped) {
-			return <pre>{props.message.content}</pre>;
+			return <pre class="messageDisplay">{props.message.content}</pre>;
 		}
+
 		const [width, setWidth] = createSignal(0);
 
 		const canvas = <canvas width={width()} /> as HTMLCanvasElement;
 		const container = <div class="messageDisplay">{canvas}</div> as HTMLDivElement;
 
-		new ResizeObserver(([entry]) => setWidth(entry.contentBoxSize[0].inlineSize)).observe(container);
+		const observer = new ResizeObserver(([entry]) => {
+			setWidth(entry.contentBoxSize[0].inlineSize);
+		});
+		observer.observe(container);
 
 		const cx = canvas.getContext("2d", { alpha: false });
 		if (cx === null) {
 			return <p>Failed to set up renderer.</p>;
 		}
 
-		const whitespaceWidth = createMemo(on(
-			width,
-			() => {
-				cx.font = "13px monospace";
-				return cx.measureText(" ").width;
-			},
-			{ defer: true },
-		));
+		createEffect(on([width, () => props.message.content], ([width, message]) => {
+			const fontSize = 13;
+			const lineHeight = 1.2;
 
-		createEffect(on([width, whitespaceWidth, () => props.message.content], ([width, whitespaceWidth, message]) => {
-			cx.font = "13px monospace";
+			cx.font = `${fontSize}px monospace`;
 
-			const lines = message.split("\n").map(line => {
-				return line.split(" ").map(part => {
-					return {
-						text: part,
-						width: cx.measureText(part).width,
+			const charMetrics = cx.measureText("⚧");
+			const column = charMetrics.width;
+			const ascent = charMetrics.fontBoundingBoxAscent ?? charMetrics.actualBoundingBoxAscent;
+			const descent = charMetrics.fontBoundingBoxDescent ?? charMetrics.actualBoundingBoxDescent;
+
+			const fragments = (function*(): Generator<{ box: string } & Fragment> {
+				const lines = { [Symbol.iterator]: () => lineBreaker(message) };
+				for (const line of lines) {
+					const content = line.slice();
+					const box = content.trimEnd();
+					yield {
+						box,
+						boxWidth: cx.measureText(box).width,
+						glueWidth: (x: number) => {
+							const glue = content.slice(box.length);
+							if (glue.endsWith("\n")) {
+								return Infinity;
+							}
+
+							let glueWidth = 0;
+							for (const c of glue) {
+								if (c === "\t") {
+									const columns = Math.floor((x + glueWidth) / column);
+									glueWidth = (Math.floor(columns / 8) * 8 + 8) * column - x;
+								} else {
+									glueWidth += cx.measureText(c).width;
+								}
+							}
+
+							return glueWidth;
+						},
 					};
-				});
-			});
+				}
+			})();
 
-			const [newWidth, height] = wordWrap(lines, whitespaceWidth, width);
-			if (newWidth !== width) {
-				setWidth(newWidth);
+			const { positionedFragments, extendedWidth, height } = wordWrap(
+				fragments,
+				ascent,
+				descent,
+				Math.floor(lineHeight * fontSize),
+				width,
+			);
+
+			if (extendedWidth !== width) {
+				setWidth(extendedWidth);
 				return;
 			}
+
 			canvas.height = height;
 
 			cx.fillStyle = "white";
 			cx.fillRect(0, 0, width, height);
 
 			cx.fillStyle = "black";
-			cx.font = "13px monospace";
+			cx.font = `${fontSize}px monospace`;
 
-			wordWrap(lines, whitespaceWidth, width, (fragment, x, y) => cx.fillText(fragment.text, x, y));
+			for (const positioned of positionedFragments) {
+				cx.fillText(positioned.fragment.box, positioned.x, positioned.y);
+			}
 		}, { defer: true }));
 
 		return container;
 	});
 }
 
-function wordWrap<T extends { width: number }>(
-	lines: T[][],
-	glue: number,
+interface Fragment {
+	boxWidth: number,
+	glueWidth: (x: number, y: number) => number,
+}
+
+interface PositionedFragment<T> {
+	x: number,
+	y: number,
+	fragment: T,
+}
+
+interface WordWrapped<T> {
+	positionedFragments: PositionedFragment<T>[],
+	extendedWidth: number,
+	height: number,
+}
+
+function wordWrap<T extends Fragment>(
+	fragments: Iterable<T>,
+	ascent: number,
+	descent: number,
+	lineHeight: number,
 	width: number,
-	f?: (fragment: T, x: number, y: number) => void,
-): [number, number] {
-	let maxX = width;
+): WordWrapped<T> {
+	const positionedFragments: PositionedFragment<T>[] = [];
 	let x = 0;
-	let y = 12;
-	for (const line of lines) {
-		for (const fragment of line) {
-			if (x + fragment.width > width) {
-				x = 0;
-				y += 15;
-			}
-			if (f !== undefined) {
-				f(fragment, x, y);
-			}
-			x += fragment.width;
-			maxX = Math.max(maxX, x);
-			x += glue;
+	let y = ascent;
+	let extendedWidth = width;
+
+	for (const fragment of fragments) {
+		if (x + fragment.boxWidth > width) {
+			x = 0;
+			y += lineHeight;
 		}
 
-		x = 0;
-		y += 15;
+		positionedFragments.push({ x, y, fragment });
+
+		x += fragment.boxWidth;
+		extendedWidth = Math.max(extendedWidth, x);
+		x += fragment.glueWidth(x, y);
 	}
-	return [maxX, y];
+
+	return { positionedFragments, extendedWidth, height: y + descent };
 }
 
 declare module "solid-js" {

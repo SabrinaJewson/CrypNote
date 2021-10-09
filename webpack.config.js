@@ -42,7 +42,7 @@ module.exports = {
 	},
 	resolve: {
 		mainFiles: ["index"],
-		extensions: [".ts", ".tsx"],
+		extensions: [".js", ".ts", ".tsx"],
 	},
 	devtool: production ? false : "eval-cheap-module-source-map",
 	mode: process.env.NODE_ENV,
