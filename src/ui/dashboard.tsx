@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
-import { createEffect, createMemo, createResource, createSignal, on } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onMount } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 import graphemeSplit from "graphemesplit";
@@ -14,6 +14,7 @@ import { Keyboard, KeyboardHandler } from ".";
 import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
+import { assertEq } from "../test";
 import { eq } from "../eq";
 import { exhausted } from "../index";
 
@@ -499,14 +500,13 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			return <p>Failed to set up renderer.</p>;
 		}
 
-		createEffect(on([width, () => props.message.content], ([width, message]) => {
+		onMount(() => {
 			const fontSize = 13;
 			const lineHeight = Math.floor(1.2 * fontSize);
-
 			cx.font = `${fontSize}px monospace`;
 
 			const spaceMetrics = cx.measureText(" ");
-			const column = spaceMetrics.width;
+			const tabWidth = spaceMetrics.width * 8;
 
 			// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring the
 			// actual bounding box of characters that (on my font) have a bounding box very close to
@@ -516,107 +516,157 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			const descent = spaceMetrics.fontBoundingBoxDescent
 				?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
 
-			const fragments = (function*(): Generator<{ box: string } & Fragment> {
-				const lines = { [Symbol.iterator]: () => lineBreaker(message) };
+			interface Grapheme {
+				content: string,
+				index: number,
+				x: number,
+				width: number,
+			}
+			const graphemes = createMemo(() => {
+				const graphemes: Grapheme[][] = [];
+
+				const wrapper = new WordWrapper(width());
+				let index = 0;
+				const lines = { [Symbol.iterator]: () => lineBreaker(props.message.content) };
 				for (const line of lines) {
 					const content = line.slice();
+
 					const box = content.trimEnd();
-					yield {
-						box,
-						boxWidth: cx.measureText(box).width,
-						glueWidth: (x: number) => {
-							const glue = content.slice(box.length);
-							if (glue.endsWith("\n")) {
-								return Infinity;
-							}
+					const { x: startX, y } = wrapper.box(cx.measureText(box).width);
 
-							let glueWidth = 0;
-							for (const c of glue) {
-								if (c === "\t") {
-									const columns = Math.floor((x + glueWidth) / column);
-									glueWidth = (Math.floor(columns / 8) * 8 + 8) * column - x;
-								} else {
-									glueWidth += cx.measureText(c).width;
-								}
-							}
+					if (graphemes[y] === undefined) {
+						graphemes.push([]);
+						assertEq(graphemes.length, y + 1);
+					}
 
-							return glueWidth;
-						},
-					};
+					let x = startX;
+
+					for (const grapheme of graphemeSplit(box)) {
+						const width = cx.measureText(grapheme).width;
+						graphemes[y].push({ content: grapheme, index, x, width });
+						x += width;
+						index += grapheme.length;
+					}
+
+					for (const grapheme of graphemeSplit(content.slice(box.length))) {
+						let width: number;
+						if (grapheme === "\n") {
+							width = 1;
+							wrapper.glue(Infinity);
+						} else if (grapheme === "\t") {
+							width = Math.floor(x / tabWidth) * tabWidth + tabWidth - x;
+							wrapper.glue(width);
+						} else {
+							width = cx.measureText(grapheme).width;
+							wrapper.glue(width);
+						}
+						graphemes[y].push({ content: grapheme, index, x, width });
+						x += width;
+						index += grapheme.length;
+					}
 				}
-			})();
 
-			const {
-				positionedFragments,
-				extendedWidth,
-				height,
-			} = wordWrap(fragments, ascent, descent, lineHeight, width);
+				if (wrapper.extendedWidth > wrapper.width) {
+					setWidth(wrapper.extendedWidth);
+				} else {
+					canvas.height = ascent + lineHeight * wrapper.y + descent;
+				}
 
-			if (extendedWidth !== width) {
-				setWidth(extendedWidth);
-				return;
-			}
+				return graphemes;
+			});
 
-			canvas.height = height;
+			const [selected, setSelected] = createSignal({ start: 0, end: 0 });
 
-			cx.fillStyle = "white";
-			cx.fillRect(0, 0, width, height);
+			createEffect(() => {
+				cx.fillStyle = "white";
+				cx.fillRect(0, 0, canvas.width, canvas.height);
 
-			cx.fillStyle = "black";
-			cx.font = `${fontSize}px monospace`;
+				const selected_ = selected();
 
-			for (const positioned of positionedFragments) {
-				cx.fillText(positioned.fragment.box, positioned.x, positioned.y);
-			}
-		}, { defer: true }));
+				for (const [yIndex, row] of graphemes().entries()) {
+					const y = ascent + lineHeight * yIndex;
+
+					for (const { content, index, x, width } of row) {
+						if (
+							index >= selected_.start && index < selected_.end
+							|| index >= selected_.end && index < selected_.start
+						) {
+							cx.fillStyle = "#3297FD";
+							cx.fillRect(x, y - ascent, width + 1, lineHeight);
+							cx.fillStyle = "white";
+						} else {
+							cx.fillStyle = "black";
+						}
+						cx.font = `${fontSize}px monospace`;
+						cx.fillText(content, x, y);
+					}
+				}
+			});
+
+			const graphemeAt = (x: number, y: number): number | null => {
+				const graphemes_ = graphemes();
+				if (graphemes_.length === 0) {
+					return null;
+				}
+				if (y < 0) {
+					return graphemes_[0][0].index;
+				}
+				const yIndex = Math.floor(y / lineHeight);
+				if (yIndex >= graphemes_.length) {
+					const row = graphemes_[graphemes_.length - 1];
+					return row[row.length - 1].index + 1;
+				}
+				const row = graphemes_[yIndex];
+				return row.find(grapheme => x < grapheme.x + grapheme.width)?.index ?? row[row.length - 1].index + 1;
+			};
+
+			canvas.addEventListener("pointerdown", e => {
+				canvas.setPointerCapture(e.pointerId);
+				const i = graphemeAt(e.offsetX, e.offsetY);
+				if (i !== null) {
+					setSelected({ start: i, end: i });
+				}
+			});
+			canvas.addEventListener("pointermove", e => {
+				if (!canvas.hasPointerCapture(e.pointerId)) {
+					return;
+				}
+				const i = graphemeAt(e.offsetX, e.offsetY);
+				if (i !== null) {
+					setSelected(old => ({ start: old.start, end: i }));
+				}
+			});
+		});
 
 		return container;
 	});
 }
 
-interface Fragment {
-	boxWidth: number,
-	glueWidth: (x: number, y: number) => number,
-}
+class WordWrapper {
+	x: number;
+	y: number;
+	extendedWidth: number;
 
-interface PositionedFragment<T> {
-	x: number,
-	y: number,
-	fragment: T,
-}
-
-interface WordWrapped<T> {
-	positionedFragments: PositionedFragment<T>[],
-	extendedWidth: number,
-	height: number,
-}
-
-function wordWrap<T extends Fragment>(
-	fragments: Iterable<T>,
-	ascent: number,
-	descent: number,
-	lineHeight: number,
-	width: number,
-): WordWrapped<T> {
-	const positionedFragments: PositionedFragment<T>[] = [];
-	let x = 0;
-	let y = ascent;
-	let extendedWidth = width;
-
-	for (const fragment of fragments) {
-		if (x + fragment.boxWidth > width) {
-			x = 0;
-			y += lineHeight;
-		}
-
-		positionedFragments.push({ x, y, fragment });
-
-		x += fragment.boxWidth;
-		extendedWidth = Math.max(extendedWidth, x);
-		x += fragment.glueWidth(x, y);
+	constructor(public width: number) {
+		this.x = 0;
+		this.y = 0;
+		this.extendedWidth = width;
 	}
 
-	return { positionedFragments, extendedWidth, height: y + descent };
+	box(width: number): { x: number, y: number } {
+		if (this.x !== 0 && this.x + width > this.width) {
+			this.x = 0;
+			this.y += 1;
+		}
+		const coord = { x: this.x, y: this.y };
+		this.x += width;
+		this.extendedWidth = Math.max(this.extendedWidth, this.x);
+		return coord;
+	}
+
+	glue(width: number): void {
+		this.x += width;
+	}
 }
 
 declare module "solid-js" {
