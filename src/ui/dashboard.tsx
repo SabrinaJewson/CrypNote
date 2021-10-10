@@ -576,6 +576,7 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			});
 
 			const [selected, setSelected] = createSignal({ start: 0, end: 0 });
+			const [focused, setFocused] = createSignal(true);
 
 			createEffect(() => {
 				cx.fillStyle = "white";
@@ -587,16 +588,23 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 					const y = ascent + lineHeight * yIndex;
 
 					for (const { content, index, x, width } of row) {
+						let text: string;
 						if (
 							index >= selected_.start && index < selected_.end
 							|| index >= selected_.end && index < selected_.start
 						) {
-							cx.fillStyle = "#3297FD";
+							if (focused()) {
+								cx.fillStyle = "#338FFF";
+								text = "white";
+							} else {
+								cx.fillStyle = "#C8C8C8";
+								text = "#323232";
+							}
 							cx.fillRect(x, y - ascent, width + 1, lineHeight);
-							cx.fillStyle = "white";
 						} else {
-							cx.fillStyle = "black";
+							text = "black";
 						}
+						cx.fillStyle = text;
 						cx.font = `${fontSize}px monospace`;
 						cx.fillText(content, x, y);
 					}
@@ -621,10 +629,14 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			};
 
 			canvas.addEventListener("pointerdown", e => {
-				canvas.setPointerCapture(e.pointerId);
+				if (e.button !== 0) {
+					return;
+				}
 				const i = graphemeAt(e.offsetX, e.offsetY);
 				if (i !== null) {
 					setSelected({ start: i, end: i });
+					getSelection()?.removeAllRanges();
+					canvas.setPointerCapture(e.pointerId);
 				}
 			});
 			canvas.addEventListener("pointermove", e => {
@@ -636,6 +648,13 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 					setSelected(old => ({ start: old.start, end: i }));
 				}
 			});
+			addEventListener("selectstart", e => {
+				if (e.target !== canvas) {
+					setSelected({ start: 0, end: 0 });
+				}
+			});
+			addEventListener("focus", () => setFocused(true));
+			addEventListener("blur", () => setFocused(false));
 		});
 
 		return container;
