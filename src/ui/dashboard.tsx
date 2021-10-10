@@ -625,7 +625,27 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 					return row[row.length - 1].index + 1;
 				}
 				const row = graphemes_[yIndex];
-				return row.find(grapheme => x < grapheme.x + grapheme.width)?.index ?? row[row.length - 1].index + 1;
+
+				if (x < 0) {
+					return row[0].index;
+				} else if (x >= row[row.length - 1].x + row[row.length - 1].width) {
+					return row[row.length - 1].index + 1;
+				}
+
+				let size = row.length;
+				let searchingFrom = 0;
+				let searchingTo = size;
+				for (;;) {
+					const mid = searchingFrom + (size >>> 1);
+					if (x < row[mid].x) {
+						searchingTo = mid;
+					} else if (x >= row[mid].x + row[mid].width) {
+						searchingFrom = mid + 1;
+					} else {
+						return row[mid].index;
+					}
+					size = searchingTo - searchingFrom;
+				}
 			};
 
 			canvas.addEventListener("pointerdown", e => {
