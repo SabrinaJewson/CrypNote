@@ -611,25 +611,25 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 				}
 			});
 
-			const graphemeAt = (x: number, y: number): number | null => {
+			const graphemeAt = (x: number, y: number): { i: number, strict: boolean } | null => {
 				const graphemes_ = graphemes();
 				if (graphemes_.length === 0) {
 					return null;
 				}
 				if (y < 0) {
-					return graphemes_[0][0].index;
+					return { i: graphemes_[0][0].index, strict: false };
 				}
 				const yIndex = Math.floor(y / lineHeight);
 				if (yIndex >= graphemes_.length) {
 					const row = graphemes_[graphemes_.length - 1];
-					return row[row.length - 1].index + 1;
+					return { i: row[row.length - 1].index + 1, strict: false };
 				}
 				const row = graphemes_[yIndex];
 
 				if (x < 0) {
-					return row[0].index;
+					return { i: row[0].index, strict: false };
 				} else if (x >= row[row.length - 1].x + row[row.length - 1].width) {
-					return row[row.length - 1].index + 1;
+					return { i: row[row.length - 1].index + 1, strict: false };
 				}
 
 				let size = row.length;
@@ -642,7 +642,7 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 					} else if (x >= row[mid].x + row[mid].width) {
 						searchingFrom = mid + 1;
 					} else {
-						return row[mid].index;
+						return { i: row[mid].index, strict: true };
 					}
 					size = searchingTo - searchingFrom;
 				}
@@ -652,20 +652,27 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 				if (e.button !== 0) {
 					return;
 				}
-				const i = graphemeAt(e.offsetX, e.offsetY);
-				if (i !== null) {
+				const i = graphemeAt(e.offsetX, e.offsetY)?.i;
+				if (i !== undefined) {
 					setSelected({ start: i, end: i });
 					getSelection()?.removeAllRanges();
 					canvas.setPointerCapture(e.pointerId);
 				}
 			});
 			canvas.addEventListener("pointermove", e => {
-				if (!canvas.hasPointerCapture(e.pointerId)) {
+				const grapheme = graphemeAt(e.offsetX, e.offsetY);
+				if (grapheme === null) {
 					return;
 				}
-				const i = graphemeAt(e.offsetX, e.offsetY);
-				if (i !== null) {
-					setSelected(old => ({ start: old.start, end: i }));
+
+				if (grapheme.strict) {
+					canvas.style.cursor = "text";
+				} else {
+					canvas.style.cursor = "";
+				}
+
+				if (canvas.hasPointerCapture(e.pointerId)) {
+					setSelected(old => ({ start: old.start, end: grapheme.i }));
 				}
 			});
 			addEventListener("selectstart", e => {
