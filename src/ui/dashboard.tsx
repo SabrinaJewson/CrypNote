@@ -485,36 +485,62 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			return <pre class="messageDisplay">{props.message.content}</pre>;
 		}
 
-		const [width, setWidth] = createSignal(0);
+		// Width of the canvas in CSS pixels
+		const [cssWidth, setCssWidth] = createSignal(0);
+		// Width of the canvas in device pixels
+		const [deviceWidth, setDeviceWidth] = createSignal(0);
 
-		const canvas = <canvas width={width()} /> as HTMLCanvasElement;
+		const canvas = <canvas width={deviceWidth()} /> as HTMLCanvasElement;
 		const container = <div class="messageDisplay">{canvas}</div> as HTMLDivElement;
-
-		const observer = new ResizeObserver(([entry]) => {
-			setWidth(entry.contentBoxSize[0].inlineSize);
-		});
-		observer.observe(container);
-
 		const cx = canvas.getContext("2d", { alpha: false });
 		if (cx === null) {
 			return <p>Failed to set up renderer.</p>;
 		}
 
+		let observer: ResizeObserver;
+		if ("devicePixelContentBoxSize" in ResizeObserverEntry.prototype) {
+			observer = new ResizeObserver(([entry]) => {
+				setCssWidth(entry.contentBoxSize[0].inlineSize);
+				setDeviceWidth(entry.devicePixelContentBoxSize[0].inlineSize);
+			});
+		} else {
+			observer = new ResizeObserver(([entry]) => {
+				setCssWidth(entry.contentBoxSize[0].inlineSize);
+			});
+			createEffect(() => {
+				// Fall back to rounding based on device pixel ratio. This does not work always:
+				//
+				// > The device-pixel-content-box can be approximated by multiplying
+				// > devicePixelRatio by the content-box size. However, due to browser-specific
+				// > subpixel snapping behavior, authors cannot determine the correct way to round
+				// > this scaled content-box size. How a UA computes the device pixel box for an
+				// > element is implementation-dependent.
+				//
+				// <https://www.w3.org/TR/resize-observer/#resize-observer-interface>
+				setDeviceWidth(Math.round(cssWidth() * devicePixelRatio()));
+			});
+		}
+		observer.observe(container);
+
 		onMount(() => {
-			const fontSize = 13;
-			const lineHeight = Math.floor(1.2 * fontSize);
-			cx.font = `${fontSize}px monospace`;
+			const baseMetrics = createMemo(() => {
+				const fontSize = 13 * devicePixelRatio();
+				const lineHeight = Math.floor(1.2 * fontSize);
+				cx.font = `${fontSize}px monospace`;
 
-			const spaceMetrics = cx.measureText(" ");
-			const tabWidth = spaceMetrics.width * 8;
+				const spaceMetrics = cx.measureText(" ");
+				const tabWidth = spaceMetrics.width * 8;
 
-			// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring the
-			// actual bounding box of characters that (on my font) have a bounding box very close to
-			// that of the font's.
-			const ascent = spaceMetrics.fontBoundingBoxAscent
-				?? cx.measureText("Ã").actualBoundingBoxAscent;
-			const descent = spaceMetrics.fontBoundingBoxDescent
-				?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
+				// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring
+				// the actual bounding box of characters that (on my font) have a bounding box very
+				// close to that of the font's.
+				const ascent = spaceMetrics.fontBoundingBoxAscent
+					?? cx.measureText("Ã").actualBoundingBoxAscent;
+				const descent = spaceMetrics.fontBoundingBoxDescent
+					?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
+
+				return { fontSize, lineHeight, tabWidth, ascent, descent };
+			});
 
 			interface Grapheme {
 				content: string,
@@ -523,9 +549,11 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 				width: number,
 			}
 			const graphemes = createMemo(() => {
+				const { lineHeight, tabWidth, ascent, descent } = baseMetrics();
+
 				const graphemes: Grapheme[][] = [];
 
-				const wrapper = new WordWrapper(width());
+				const wrapper = new WordWrapper(deviceWidth());
 				let index = 0;
 				const lines = { [Symbol.iterator]: () => lineBreaker(props.message.content) };
 				for (const line of lines) {
@@ -566,11 +594,10 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 					}
 				}
 
-				if (wrapper.extendedWidth > wrapper.width) {
-					setWidth(wrapper.extendedWidth);
-				} else {
-					canvas.height = ascent + lineHeight * wrapper.y + descent;
-				}
+				const height = ascent + lineHeight * wrapper.y + descent;
+				canvas.height = height;
+				canvas.style.height = `${height / devicePixelRatio()}px`;
+				canvas.style.minWidth = `${wrapper.minWidth / devicePixelRatio()}px`;
 
 				return graphemes;
 			});
@@ -579,6 +606,8 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			const [focused, setFocused] = createSignal(true);
 
 			createEffect(() => {
+				const { fontSize, lineHeight, ascent } = baseMetrics();
+
 				cx.fillStyle = "white";
 				cx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -612,6 +641,11 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			});
 
 			const graphemeAt = (x: number, y: number): { i: number, strict: boolean } | null => {
+				const { lineHeight } = baseMetrics();
+
+				x *= devicePixelRatio();
+				y *= devicePixelRatio();
+
 				const graphemes_ = graphemes();
 				if (graphemes_.length === 0) {
 					return null;
@@ -700,12 +734,12 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 class WordWrapper {
 	x: number;
 	y: number;
-	extendedWidth: number;
+	minWidth: number;
 
 	constructor(public width: number) {
 		this.x = 0;
 		this.y = 0;
-		this.extendedWidth = width;
+		this.minWidth = 0;
 	}
 
 	box(width: number): { x: number, y: number } {
@@ -715,7 +749,7 @@ class WordWrapper {
 		}
 		const coord = { x: this.x, y: this.y };
 		this.x += width;
-		this.extendedWidth = Math.max(this.extendedWidth, this.x);
+		this.minWidth = Math.max(this.minWidth, width);
 		return coord;
 	}
 
@@ -724,10 +758,29 @@ class WordWrapper {
 	}
 }
 
+const devicePixelRatio = (() => {
+	const [dpr, setDpr] = createSignal(window.devicePixelRatio);
+
+	const updater = (): void => {
+		const pr = window.devicePixelRatio;
+		setDpr(pr);
+		matchMedia(`(resolution: ${pr}dppx)`).addEventListener("change", updater, { once: true });
+	};
+	updater();
+
+	return dpr;
+})();
+
 declare module "solid-js" {
 	namespace JSX {
 		interface CustomEvents {
 			beforeinput: InputEvent,
 		}
+	}
+}
+
+declare global {
+	interface ResizeObserverEntry {
+		devicePixelContentBoxSize: ReadonlyArray<ResizeObserverSize>,
 	}
 }
