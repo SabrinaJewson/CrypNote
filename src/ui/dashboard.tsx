@@ -682,6 +682,15 @@ function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Elem
 			});
 			addEventListener("focus", () => setFocused(true));
 			addEventListener("blur", () => setFocused(false));
+			addEventListener("copy", (e: ClipboardEvent) => {
+				const selected_ = selected();
+				if (selected_.start !== selected_.end) {
+					const start = Math.min(selected_.start, selected_.end);
+					const end = Math.max(selected_.start, selected_.end);
+					e.clipboardData?.setData("text/plain", props.message.content.slice(start, end));
+					e.preventDefault();
+				}
+			});
 		});
 
 		return container;
