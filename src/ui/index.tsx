@@ -6,37 +6,16 @@ import { JSX } from "solid-js";
 import { Db, LockedAccount, UnlockedAccount, db } from "../lib";
 import Accounts from "./accounts";
 import Dashboard from "./dashboard";
-import KeyboardEl from "./keyboard";
+import Keyboard from "./keyboard";
 import { runTests } from "../test";
 
 import "./base.scss";
 
-export interface Keyboard {
-	show: (handler: KeyboardHandler) => void,
-	hide: () => void,
-}
-
-export interface KeyboardHandler {
-	onInput: (input: string) => void,
-}
-
 export default function(): JSX.Element {
-	const [keyboardHandler, setKeyboardHandler] = createSignal<null | KeyboardHandler>(null);
-
+	const keyboard = new Keyboard();
 	return <>
-		<MainApp keyboard={{
-			show: setKeyboardHandler,
-			hide: () => setKeyboardHandler(null),
-		}} />
-		{() => {
-			const handler = keyboardHandler();
-			if (handler !== null) {
-				return <KeyboardEl
-					onInput={key => handler.onInput(key)}
-					onClose={() => setKeyboardHandler(null)}
-				/>;
-			}
-		}}
+		<MainApp keyboard={keyboard} />
+		<keyboard.element />
 	</>;
 }
 

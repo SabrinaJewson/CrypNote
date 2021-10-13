@@ -10,7 +10,7 @@ import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode,
 import { Exportable, Importable } from "./exportable";
 import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
-import { Keyboard, KeyboardHandler } from ".";
+import Keyboard, { KeyboardHandler } from "./keyboard";
 import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
