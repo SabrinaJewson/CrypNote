@@ -143,113 +143,135 @@ enum ShiftMode {
 	CapsLock,
 }
 
-export default function(props: {
+export interface KeyboardHandler {
 	onInput: (key: string) => void,
-	onClose: () => void,
-}): JSX.Element {
-	const [shiftMode, setShiftMode] = createSignal(ShiftMode.Normal);
-	const [altMode, setAltMode] = createSignal(false);
+}
 
-	addEventListener("keydown", e => {
-		if (e.key === "Shift") {
-			setShiftMode(ShiftMode.Shift);
-		} else if (e.key === "Alt") {
-			setAltMode(true);
-		}
-	});
-	addEventListener("keyup", e => {
-		if (e.key === "Shift") {
-			setShiftMode(ShiftMode.Normal);
-		} else if (e.key === "Alt") {
-			setAltMode(false);
-		}
-	});
+export default class {
+	private readonly handler: () => KeyboardHandler | null;
+	private readonly setHandler: (handler: KeyboardHandler | null) => void;
+	readonly element: () => JSX.Element;
 
-	return <div
-		class="keyboard"
-		// Prevent clicking defocusing existing focused elements
-		onMouseDown={e => e.preventDefault()}
-	>
-		<For each={layout}>{row => <div><For each={row}>{key => {
-			const state = createMemo(() => {
-				const shift = shiftMode() !== ShiftMode.Normal;
-				const alt = altMode();
-				return shift ? (alt ? key.altShift : key.shift) : (alt ? key.alt : key.normal);
-			});
+	constructor() {
+		[this.handler, this.setHandler] = createSignal<KeyboardHandler | null>(null);
+		this.element = this.element_.bind(this) as () => JSX.Element;
+	}
 
-			const held = createMemo(() => {
-				return (false
-					|| state().function === Special.Shift && shiftMode() === ShiftMode.Shift
-					|| state().function === Special.CapsLock && shiftMode() === ShiftMode.CapsLock
-					|| state().function === Special.Alt && altMode()
-				);
-			});
+	show(handler: KeyboardHandler): void {
+		this.setHandler(handler);
+	}
 
-			const onClick = (e: MouseEvent): void => {
-				const func = state().function;
-				switch (func) {
-					case Special.CapsLock: {
+	hide(): void {
+		this.setHandler(null);
+	}
+
+	private element_(): JSX.Element {
+		const [shiftMode, setShiftMode] = createSignal(ShiftMode.Normal);
+		const [altMode, setAltMode] = createSignal(false);
+
+		addEventListener("keydown", e => {
+			if (e.key === "Shift") {
+				setShiftMode(ShiftMode.Shift);
+			} else if (e.key === "Alt") {
+				setAltMode(true);
+			}
+		});
+		addEventListener("keyup", e => {
+			if (e.key === "Shift") {
+				setShiftMode(ShiftMode.Normal);
+			} else if (e.key === "Alt") {
+				setAltMode(false);
+			}
+		});
+
+		const element = <div
+			class="keyboard"
+			// Prevent clicking defocusing existing focused elements
+			onMouseDown={e => e.preventDefault()}
+		>
+			<For each={layout}>{row => <div><For each={row}>{key => {
+				const state = createMemo(() => {
+					const shift = shiftMode() !== ShiftMode.Normal;
+					const alt = altMode();
+					return shift ? (alt ? key.altShift : key.shift) : (alt ? key.alt : key.normal);
+				});
+
+				const held = createMemo(() => {
+					return (false
+						|| state().function === Special.Shift && shiftMode() === ShiftMode.Shift
+						|| state().function === Special.CapsLock && shiftMode() === ShiftMode.CapsLock
+						|| state().function === Special.Alt && altMode()
+					);
+				});
+
+				const onClick = (e: MouseEvent): void => {
+					const func = state().function;
+					switch (func) {
+						case Special.CapsLock: {
+							setShiftMode(mode => (
+								mode === ShiftMode.CapsLock ? ShiftMode.Normal : ShiftMode.CapsLock
+							));
+							break;
+						}
+						case Special.Shift: {
+							setShiftMode(mode => (
+								mode === ShiftMode.Normal ? ShiftMode.Shift : ShiftMode.Normal
+							));
+							break;
+						}
+						case Special.Alt: {
+							setAltMode(mode => !mode);
+							break;
+						}
+						case Special.Bottom: {
+							const messages = [
+								"👉👈",
+								"💖",
+								"🥺",
+								"✨",
+								",,",
+								"🫂",
+							];
+							const message = messages[Math.floor(Math.random() * messages.length)];
+							this.handler()?.onInput(message);
+							break;
+						}
+						case Special.Close: {
+							this.setHandler(null);
+							break;
+						}
+						default: {
+							this.handler()?.onInput(func);
+							setAltMode(e.altKey);
+							if (e.shiftKey) {
+								setShiftMode(ShiftMode.Shift);
+							} else if (shiftMode() === ShiftMode.Shift) {
+								setShiftMode(ShiftMode.Normal);
+							}
+						}
+					}
+				};
+
+				const onDblClick = (): void => {
+					if (state().function === Special.Shift) {
 						setShiftMode(mode => (
 							mode === ShiftMode.CapsLock ? ShiftMode.Normal : ShiftMode.CapsLock
 						));
-						break;
 					}
-					case Special.Shift: {
-						setShiftMode(mode => (
-							mode === ShiftMode.Normal ? ShiftMode.Shift : ShiftMode.Normal
-						));
-						break;
-					}
-					case Special.Alt: {
-						setAltMode(mode => !mode);
-						break;
-					}
-					case Special.Bottom: {
-						const messages = [
-							"👉👈",
-							"💖",
-							"🥺",
-							"✨",
-							",,",
-							"🫂",
-						];
-						const message = messages[Math.floor(Math.random() * messages.length)];
-						props.onInput(message);
-						break;
-					}
-					case Special.Close: {
-						props.onClose();
-						break;
-					}
-					default: {
-						props.onInput(func);
-						setAltMode(e.altKey);
-						if (e.shiftKey) {
-							setShiftMode(ShiftMode.Shift);
-						} else if (shiftMode() === ShiftMode.Shift) {
-							setShiftMode(ShiftMode.Normal);
-						}
-					}
-				}
-			};
+				};
 
-			const onDblClick = (): void => {
-				if (state().function === Special.Shift) {
-					setShiftMode(mode => (
-						mode === ShiftMode.CapsLock ? ShiftMode.Normal : ShiftMode.CapsLock
-					));
-				}
-			};
+				return <div class="key" style={`flex: ${key.width} 0 ${key.width}px`}>
+					<div
+						onClick={onClick}
+						onDblClick={onDblClick}
+						classList={{ held: held() }}
+					>
+						{state().display}
+					</div>
+				</div>;
+			}}</For></div>}</For>
+		</div>;
 
-			return <div class="key" style={`flex: ${key.width} 0 ${key.width}px`}>
-				<div
-					onClick={onClick}
-					onDblClick={onDblClick}
-					classList={{ held: held() }}
-				>
-					{state().display}
-				</div>
-			</div>;
-		}}</For></div>}</For>
-	</div>;
+		return createMemo(() => this.handler() === null ? [] : element);
+	}
 }
