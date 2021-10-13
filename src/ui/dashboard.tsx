@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
-import { createEffect, createMemo, createResource, createSignal, onMount } from "solid-js";
+import { Setter, createEffect, createMemo, createResource, createSignal, onMount } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 import graphemeSplit from "graphemesplit";
@@ -481,254 +481,262 @@ function MessageInput(props: {
 
 function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
 	return createMemo(() => {
-		if (!props.scraped) {
+		if (props.scraped) {
+			const [selected, setSelected] = createSignal({ start: 0, end: 0 });
+			return <SyntheticTextDisplay selected={selected()} setSelected={setSelected}>{props.message.content}</SyntheticTextDisplay>;
+		} else {
 			return <pre class="messageDisplay">{props.message.content}</pre>;
 		}
+	});
+}
 
-		// Width of the canvas in CSS pixels
-		const [cssWidth, setCssWidth] = createSignal(0);
-		// Width of the canvas in device pixels
-		const [deviceWidth, setDeviceWidth] = createSignal(0);
+function SyntheticTextDisplay(props: {
+	selected: { start: number, end: number },
+	setSelected: Setter<{ start: number, end: number }>,
+	children: string,
+}): JSX.Element {
+	// Width of the canvas in CSS pixels
+	const [cssWidth, setCssWidth] = createSignal(0);
+	// Width of the canvas in device pixels
+	const [deviceWidth, setDeviceWidth] = createSignal(0);
 
-		const canvas = <canvas width={deviceWidth()} /> as HTMLCanvasElement;
-		const container = <div class="messageDisplay">{canvas}</div> as HTMLDivElement;
-		const cx = canvas.getContext("2d", { alpha: false });
-		if (cx === null) {
-			return <p>Failed to set up renderer.</p>;
-		}
+	const canvas = <canvas width={deviceWidth()} /> as HTMLCanvasElement;
+	const container = <div class="messageDisplay">{canvas}</div> as HTMLDivElement;
+	const cx = canvas.getContext("2d", { alpha: false });
+	if (cx === null) {
+		return <p>Failed to set up renderer.</p>;
+	}
 
-		let observer: ResizeObserver;
-		if ("devicePixelContentBoxSize" in ResizeObserverEntry.prototype) {
-			observer = new ResizeObserver(([entry]) => {
-				setCssWidth(entry.contentBoxSize[0].inlineSize);
-				setDeviceWidth(entry.devicePixelContentBoxSize[0].inlineSize);
-			});
-		} else {
-			observer = new ResizeObserver(([entry]) => {
-				setCssWidth(entry.contentBoxSize[0].inlineSize);
-			});
-			createEffect(() => {
-				// Fall back to rounding based on device pixel ratio. This does not work always:
-				//
-				// > The device-pixel-content-box can be approximated by multiplying
-				// > devicePixelRatio by the content-box size. However, due to browser-specific
-				// > subpixel snapping behavior, authors cannot determine the correct way to round
-				// > this scaled content-box size. How a UA computes the device pixel box for an
-				// > element is implementation-dependent.
-				//
-				// <https://www.w3.org/TR/resize-observer/#resize-observer-interface>
-				setDeviceWidth(Math.round(cssWidth() * devicePixelRatio()));
-			});
-		}
-		observer.observe(container);
+	let observer: ResizeObserver;
+	if ("devicePixelContentBoxSize" in ResizeObserverEntry.prototype) {
+		observer = new ResizeObserver(([entry]) => {
+			setCssWidth(entry.contentBoxSize[0].inlineSize);
+			setDeviceWidth(entry.devicePixelContentBoxSize[0].inlineSize);
+		});
+	} else {
+		observer = new ResizeObserver(([entry]) => {
+			setCssWidth(entry.contentBoxSize[0].inlineSize);
+		});
+		createEffect(() => {
+			// Fall back to rounding based on device pixel ratio. This does not work always:
+			//
+			// > The device-pixel-content-box can be approximated by multiplying
+			// > devicePixelRatio by the content-box size. However, due to browser-specific
+			// > subpixel snapping behavior, authors cannot determine the correct way to round
+			// > this scaled content-box size. How a UA computes the device pixel box for an
+			// > element is implementation-dependent.
+			//
+			// <https://www.w3.org/TR/resize-observer/#resize-observer-interface>
+			setDeviceWidth(Math.round(cssWidth() * devicePixelRatio()));
+		});
+	}
+	observer.observe(container);
 
-		onMount(() => {
-			const baseMetrics = createMemo(() => {
-				const fontSize = 13 * devicePixelRatio();
-				const lineHeight = Math.floor(1.2 * fontSize);
-				cx.font = `${fontSize}px monospace`;
+	onMount(() => {
+		const baseMetrics = createMemo(() => {
+			const fontSize = 13 * devicePixelRatio();
+			const lineHeight = Math.floor(1.2 * fontSize);
+			cx.font = `${fontSize}px monospace`;
 
-				const spaceMetrics = cx.measureText(" ");
-				const tabWidth = spaceMetrics.width * 8;
+			const spaceMetrics = cx.measureText(" ");
+			const tabWidth = spaceMetrics.width * 8;
 
-				// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring
-				// the actual bounding box of characters that (on my font) have a bounding box very
-				// close to that of the font's.
-				const ascent = spaceMetrics.fontBoundingBoxAscent
-					?? cx.measureText("Ã").actualBoundingBoxAscent;
-				const descent = spaceMetrics.fontBoundingBoxDescent
-					?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
+			// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring
+			// the actual bounding box of characters that (on my font) have a bounding box very
+			// close to that of the font's.
+			const ascent = spaceMetrics.fontBoundingBoxAscent
+				?? cx.measureText("Ã").actualBoundingBoxAscent;
+			const descent = spaceMetrics.fontBoundingBoxDescent
+				?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
 
-				return { fontSize, lineHeight, tabWidth, ascent, descent };
-			});
-
-			interface Grapheme {
-				content: string,
-				index: number,
-				x: number,
-				width: number,
-			}
-			const graphemes = createMemo(() => {
-				const { lineHeight, tabWidth, ascent, descent } = baseMetrics();
-
-				const graphemes: Grapheme[][] = [];
-
-				const wrapper = new WordWrapper(deviceWidth());
-				let index = 0;
-				const lines = { [Symbol.iterator]: () => lineBreaker(props.message.content) };
-				for (const line of lines) {
-					const content = line.slice();
-
-					const box = content.trimEnd();
-					const { x: startX, y } = wrapper.box(cx.measureText(box).width);
-
-					if (graphemes[y] === undefined) {
-						graphemes.push([]);
-						assertEq(graphemes.length, y + 1);
-					}
-
-					let x = startX;
-
-					for (const grapheme of graphemeSplit(box)) {
-						const width = cx.measureText(grapheme).width;
-						graphemes[y].push({ content: grapheme, index, x, width });
-						x += width;
-						index += grapheme.length;
-					}
-
-					for (const grapheme of graphemeSplit(content.slice(box.length))) {
-						let width: number;
-						if (grapheme === "\n") {
-							width = 1;
-							wrapper.glue(Infinity);
-						} else if (grapheme === "\t") {
-							width = Math.floor(x / tabWidth) * tabWidth + tabWidth - x;
-							wrapper.glue(width);
-						} else {
-							width = cx.measureText(grapheme).width;
-							wrapper.glue(width);
-						}
-						graphemes[y].push({ content: grapheme, index, x, width });
-						x += width;
-						index += grapheme.length;
-					}
-				}
-
-				const height = ascent + lineHeight * wrapper.y + descent;
-				canvas.height = height;
-				canvas.style.height = `${height / devicePixelRatio()}px`;
-				canvas.style.minWidth = `${wrapper.minWidth / devicePixelRatio()}px`;
-
-				return graphemes;
-			});
-
-			const [selected, setSelected] = createSignal({ start: 0, end: 0 });
-			const [focused, setFocused] = createSignal(true);
-
-			createEffect(() => {
-				const { fontSize, lineHeight, ascent } = baseMetrics();
-
-				cx.fillStyle = "white";
-				cx.fillRect(0, 0, canvas.width, canvas.height);
-
-				const selected_ = selected();
-
-				for (const [yIndex, row] of graphemes().entries()) {
-					const y = ascent + lineHeight * yIndex;
-
-					for (const { content, index, x, width } of row) {
-						let text: string;
-						if (
-							index >= selected_.start && index < selected_.end
-							|| index >= selected_.end && index < selected_.start
-						) {
-							if (focused()) {
-								cx.fillStyle = "#338FFF";
-								text = "white";
-							} else {
-								cx.fillStyle = "#C8C8C8";
-								text = "#323232";
-							}
-							cx.fillRect(x, y - ascent, width + 1, lineHeight);
-						} else {
-							text = "black";
-						}
-						cx.fillStyle = text;
-						cx.font = `${fontSize}px monospace`;
-						cx.fillText(content, x, y);
-					}
-				}
-			});
-
-			const graphemeAt = (x: number, y: number): { i: number, strict: boolean } | null => {
-				const { lineHeight } = baseMetrics();
-
-				x *= devicePixelRatio();
-				y *= devicePixelRatio();
-
-				const graphemes_ = graphemes();
-				if (graphemes_.length === 0) {
-					return null;
-				}
-				if (y < 0) {
-					return { i: graphemes_[0][0].index, strict: false };
-				}
-				const yIndex = Math.floor(y / lineHeight);
-				if (yIndex >= graphemes_.length) {
-					const row = graphemes_[graphemes_.length - 1];
-					return { i: row[row.length - 1].index + 1, strict: false };
-				}
-				const row = graphemes_[yIndex];
-
-				if (x < 0) {
-					return { i: row[0].index, strict: false };
-				} else if (x >= row[row.length - 1].x + row[row.length - 1].width) {
-					return { i: row[row.length - 1].index + 1, strict: false };
-				}
-
-				let size = row.length;
-				let searchingFrom = 0;
-				let searchingTo = size;
-				for (;;) {
-					const mid = searchingFrom + (size >>> 1);
-					if (x < row[mid].x) {
-						searchingTo = mid;
-					} else if (x >= row[mid].x + row[mid].width) {
-						searchingFrom = mid + 1;
-					} else {
-						return { i: row[mid].index, strict: true };
-					}
-					size = searchingTo - searchingFrom;
-				}
-			};
-
-			canvas.addEventListener("pointerdown", e => {
-				if (e.button !== 0) {
-					return;
-				}
-				const i = graphemeAt(e.offsetX, e.offsetY)?.i;
-				if (i !== undefined) {
-					setSelected({ start: i, end: i });
-					getSelection()?.removeAllRanges();
-					canvas.setPointerCapture(e.pointerId);
-				}
-			});
-			canvas.addEventListener("pointermove", e => {
-				const grapheme = graphemeAt(e.offsetX, e.offsetY);
-				if (grapheme === null) {
-					return;
-				}
-
-				if (grapheme.strict) {
-					canvas.style.cursor = "text";
-				} else {
-					canvas.style.cursor = "";
-				}
-
-				if (canvas.hasPointerCapture(e.pointerId)) {
-					setSelected(old => ({ start: old.start, end: grapheme.i }));
-				}
-			});
-			addEventListener("selectstart", e => {
-				if (e.target !== canvas) {
-					setSelected({ start: 0, end: 0 });
-				}
-			});
-			addEventListener("focus", () => setFocused(true));
-			addEventListener("blur", () => setFocused(false));
-			addEventListener("copy", (e: ClipboardEvent) => {
-				const selected_ = selected();
-				if (selected_.start !== selected_.end) {
-					const start = Math.min(selected_.start, selected_.end);
-					const end = Math.max(selected_.start, selected_.end);
-					e.clipboardData?.setData("text/plain", props.message.content.slice(start, end));
-					e.preventDefault();
-				}
-			});
+			return { fontSize, lineHeight, tabWidth, ascent, descent };
 		});
 
-		return container;
+		interface Grapheme {
+			content: string,
+			index: number,
+			x: number,
+			width: number,
+		}
+		const graphemes = createMemo(() => {
+			const { lineHeight, tabWidth, ascent, descent } = baseMetrics();
+
+			const graphemes: Grapheme[][] = [];
+
+			const wrapper = new WordWrapper(deviceWidth());
+			let index = 0;
+			const lines = { [Symbol.iterator]: () => lineBreaker(props.children) };
+			for (const line of lines) {
+				const content = line.slice();
+
+				const box = content.trimEnd();
+				const { x: startX, y } = wrapper.box(cx.measureText(box).width);
+
+				if (graphemes[y] === undefined) {
+					graphemes.push([]);
+					assertEq(graphemes.length, y + 1);
+				}
+
+				let x = startX;
+
+				for (const grapheme of graphemeSplit(box)) {
+					const width = cx.measureText(grapheme).width;
+					graphemes[y].push({ content: grapheme, index, x, width });
+					x += width;
+					index += grapheme.length;
+				}
+
+				for (const grapheme of graphemeSplit(content.slice(box.length))) {
+					let width: number;
+					if (grapheme === "\n") {
+						width = 1;
+						wrapper.glue(Infinity);
+					} else if (grapheme === "\t") {
+						width = Math.floor(x / tabWidth) * tabWidth + tabWidth - x;
+						wrapper.glue(width);
+					} else {
+						width = cx.measureText(grapheme).width;
+						wrapper.glue(width);
+					}
+					graphemes[y].push({ content: grapheme, index, x, width });
+					x += width;
+					index += grapheme.length;
+				}
+			}
+
+			const height = ascent + lineHeight * wrapper.y + descent;
+			canvas.height = height;
+			canvas.style.height = `${height / devicePixelRatio()}px`;
+			canvas.style.minWidth = `${wrapper.minWidth / devicePixelRatio()}px`;
+
+			return graphemes;
+		});
+
+		const [focused, setFocused] = createSignal(true);
+
+		createEffect(() => {
+			const { fontSize, lineHeight, ascent } = baseMetrics();
+
+			cx.fillStyle = "white";
+			cx.fillRect(0, 0, canvas.width, canvas.height);
+
+			const selected_ = props.selected;
+
+			for (const [yIndex, row] of graphemes().entries()) {
+				const y = ascent + lineHeight * yIndex;
+
+				for (const { content, index, x, width } of row) {
+					let text: string;
+					if (
+						index >= selected_.start && index < selected_.end
+						|| index >= selected_.end && index < selected_.start
+					) {
+						if (focused()) {
+							cx.fillStyle = "#338FFF";
+							text = "white";
+						} else {
+							cx.fillStyle = "#C8C8C8";
+							text = "#323232";
+						}
+						cx.fillRect(x, y - ascent, width + 1, lineHeight);
+					} else {
+						text = "black";
+					}
+					cx.fillStyle = text;
+					cx.font = `${fontSize}px monospace`;
+					cx.fillText(content, x, y);
+				}
+			}
+		});
+
+		const graphemeAt = (x: number, y: number): { i: number, strict: boolean } | null => {
+			const { lineHeight } = baseMetrics();
+
+			x *= devicePixelRatio();
+			y *= devicePixelRatio();
+
+			const graphemes_ = graphemes();
+			if (graphemes_.length === 0) {
+				return null;
+			}
+			if (y < 0) {
+				return { i: graphemes_[0][0].index, strict: false };
+			}
+			const yIndex = Math.floor(y / lineHeight);
+			if (yIndex >= graphemes_.length) {
+				const row = graphemes_[graphemes_.length - 1];
+				return { i: row[row.length - 1].index + 1, strict: false };
+			}
+			const row = graphemes_[yIndex];
+
+			if (x < 0) {
+				return { i: row[0].index, strict: false };
+			} else if (x >= row[row.length - 1].x + row[row.length - 1].width) {
+				return { i: row[row.length - 1].index + 1, strict: false };
+			}
+
+			let size = row.length;
+			let searchingFrom = 0;
+			let searchingTo = size;
+			for (;;) {
+				const mid = searchingFrom + (size >>> 1);
+				if (x < row[mid].x) {
+					searchingTo = mid;
+				} else if (x >= row[mid].x + row[mid].width) {
+					searchingFrom = mid + 1;
+				} else {
+					return { i: row[mid].index, strict: true };
+				}
+				size = searchingTo - searchingFrom;
+			}
+		};
+
+		canvas.addEventListener("pointerdown", e => {
+			if (e.button !== 0) {
+				return;
+			}
+			const i = graphemeAt(e.offsetX, e.offsetY)?.i;
+			if (i !== undefined) {
+				props.setSelected({ start: i, end: i });
+				getSelection()?.removeAllRanges();
+				canvas.setPointerCapture(e.pointerId);
+			}
+		});
+		canvas.addEventListener("pointermove", e => {
+			const grapheme = graphemeAt(e.offsetX, e.offsetY);
+			if (grapheme === null) {
+				return;
+			}
+
+			if (grapheme.strict) {
+				canvas.style.cursor = "text";
+			} else {
+				canvas.style.cursor = "";
+			}
+
+			if (canvas.hasPointerCapture(e.pointerId)) {
+				props.setSelected(old => ({ start: old.start, end: grapheme.i }));
+			}
+		});
+		addEventListener("selectstart", e => {
+			if (e.target !== canvas) {
+				props.setSelected({ start: 0, end: 0 });
+			}
+		});
+		addEventListener("focus", () => setFocused(true));
+		addEventListener("blur", () => setFocused(false));
+		addEventListener("copy", (e: ClipboardEvent) => {
+			const selected_ = props.selected;
+			if (selected_.start !== selected_.end) {
+				const start = Math.min(selected_.start, selected_.end);
+				const end = Math.max(selected_.start, selected_.end);
+				e.clipboardData?.setData("text/plain", props.children.slice(start, end));
+				e.preventDefault();
+			}
+		});
 	});
+
+	return container;
 }
 
 class WordWrapper {
