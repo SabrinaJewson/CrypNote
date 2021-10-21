@@ -100,14 +100,14 @@ div.messageInput {
 	overflow-y: auto;
 	cursor: text;
 
-	> .syntheticTextDisplay {
+	> .syntheticTextBox {
 		width: 100%;
 		height: 100%;
 	}
 }
 
 .messageDisplay {
-	> .syntheticTextDisplay {
+	> .syntheticTextBox {
 		width: 100%;
 		height: 0;
 	}
@@ -119,7 +119,7 @@ div.messageInput {
 	}
 }
 
-.syntheticTextDisplay {
+.syntheticTextBox {
 	display: block;
 
 	&:focus {

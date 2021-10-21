@@ -10,8 +10,8 @@ import { Exportable, Importable } from "./exportable";
 import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
 import Keyboard, { KeyboardHandler } from "./keyboard";
-import { OverflowWrap, SyntheticTextDisplay } from "./syntheticTextDisplay";
 import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
+import SyntheticTextBox, { OverflowWrap } from "./syntheticTextBox";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
 import { eq } from "../eq";
@@ -485,7 +485,7 @@ function MessageInput(props: {
 				}}
 			/> as HTMLElement;
 		} else {
-			let display!: SyntheticTextDisplay;
+			let display!: SyntheticTextBox;
 
 			const handler: KeyboardHandler = {
 				onBackspace: () => display.backspace(),
@@ -527,7 +527,7 @@ function MessageInput(props: {
 					}
 				}}
 			>
-				<SyntheticTextDisplay
+				<SyntheticTextBox
 					content={props.message.content}
 					setContent={setter => props.setMessage("content", setter)}
 					padding={2}
@@ -548,7 +548,7 @@ function MessageInput(props: {
 function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
 	return <div class="messageDisplay">{() => {
 		if (props.scraped) {
-			return <SyntheticTextDisplay content={props.message.content} />
+			return <SyntheticTextBox content={props.message.content} />
 		} else {
 			return <pre>{props.message.content + "\n"}</pre>;
 		}
