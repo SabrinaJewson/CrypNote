@@ -7,7 +7,7 @@ import { addSelectAllListener, removeSelectAllListener } from "../onSelectAll";
 
 export enum OverflowWrap { Normal, BreakWord }
 
-export interface SyntheticTextDisplay {
+export default interface Controller {
 	readonly backspace: () => void,
 	readonly delete: () => void,
 	readonly clear: () => void,
@@ -20,14 +20,14 @@ export interface SyntheticTextDisplay {
 	readonly end: () => void,
 }
 
-export function SyntheticTextDisplay(props: {
+export default function(props: {
 	content: string,
 	setContent?: (v: string | ((old: string) => string)) => void,
 	padding?: number,
 	overflowWrap?: OverflowWrap,
 	onFocus?: () => void,
 	onBlur?: () => void,
-	ref?: SyntheticTextDisplay | ((controller: SyntheticTextDisplay) => void),
+	ref?: Controller | ((controller: Controller) => void),
 }): JSX.Element {
 	const [selected, setSelected] = createSignal({ start: 0, end: 0 });
 
@@ -41,7 +41,7 @@ export function SyntheticTextDisplay(props: {
 	const padding = createMemo(() => (props.padding ?? 0) * devicePixelRatio());
 
 	const canvas = <canvas
-		class="syntheticTextDisplay"
+		class="syntheticTextBox"
 		width={deviceWidth()}
 		height={deviceHeight()}
 		tabIndex={props.setContent && 0}
@@ -248,7 +248,7 @@ export function SyntheticTextDisplay(props: {
 			});
 		};
 
-		const controller: SyntheticTextDisplay = {
+		const controller: Controller = {
 			backspace: () => {
 				if (props.setContent === undefined) {
 					return;
