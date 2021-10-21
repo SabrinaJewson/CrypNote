@@ -1,20 +1,19 @@
 import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
-import { Setter, createEffect, createMemo, createResource, createSignal, onMount } from "solid-js";
+import { createMemo, createResource, createSignal, onMount } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 import graphemeSplit from "graphemesplit";
-import { LineBreaker as lineBreaker } from "css-line-break";
 
 import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
 import { Exportable, Importable } from "./exportable";
 import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
 import Keyboard, { KeyboardHandler } from "./keyboard";
+import { OverflowWrap, SyntheticTextDisplay } from "./syntheticTextDisplay";
 import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
 import { Bytes } from "../bytes";
 import OrderableList from "./orderableList";
-import { assertEq } from "../test";
 import { eq } from "../eq";
 import { exhausted } from "../index";
 
@@ -32,7 +31,7 @@ export default function(props: {
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove
-	setScreen(Screen.Decode);
+	setScreen(Screen.Encrypt);
 
 	const outerProps = props;
 
@@ -417,367 +416,144 @@ function MessageInput(props: {
 	setMessage: SetStoreFunction<Message>,
 	keyboard: Keyboard,
 }): JSX.Element {
-	return createMemo(() => {
-		if (!props.keylogged) {
-			return <textarea
-				rows="12"
+	return createMemo<HTMLElement>(oldEl => {
+		const height = oldEl === undefined ? "264px" : oldEl.style.height;
+		const scrollTop = oldEl === undefined ? 0 : oldEl.scrollTop;
+
+		if (!props.keylogged && !props.scraped) {
+			const area = <textarea
+				class="messageInput"
+				style={`height:${height}`}
 				value={props.message.content}
 				onInput={e => props.setMessage("content", (e.target as HTMLTextAreaElement).value)}
-			/>;
-		}
+			/> as HTMLElement;
+			onMount(() => area.scrollTop = scrollTop);
+			return area;
+		} else if (props.keylogged && !props.scraped) {
+			let area!: HTMLTextAreaElement;
 
-		let area!: HTMLTextAreaElement;
-
-		const handler: KeyboardHandler = {
-			onInput: input => {
-				const selectionStart = area.selectionStart;
-				const selectionEnd = area.selectionEnd;
-				if (input === "\b") {
-					if (selectionStart === selectionEnd) {
-						if (selectionStart !== 0) {
-							props.setMessage("content", content => {
-								return content.slice(0, selectionStart - 1) + content.slice(selectionStart);
-							});
-							area.selectionStart = selectionStart - 1;
-							area.selectionEnd = selectionEnd - 1;
+			const handler: KeyboardHandler = {
+				onBackspace: () => {
+					const [start, end] = [area.selectionStart, area.selectionEnd];
+					if (start === end) {
+						if (start === 0) {
+							return;
 						}
+						// TODO: Work using graphemes
+						props.setMessage("content", content => {
+							return content.slice(0, start - 1) + content.slice(end);
+						});
+						area.selectionStart = start - 1;
+						area.selectionEnd = start - 1;
 					} else {
 						props.setMessage("content", content => {
-							return content.slice(0, selectionStart) + content.slice(selectionEnd);
+							return content.slice(0, start) + content.slice(end);
 						});
-						area.selectionEnd = selectionStart;
+						area.selectionEnd = start;
 					}
-				} else {
+				},
+				onInput: input => {
+					const [start, end] = [area.selectionStart, area.selectionEnd];
 					props.setMessage("content", content => {
-						return content.slice(0, selectionStart) + input + content.slice(selectionEnd);
+						return content.slice(0, start) + input + content.slice(end);
 					});
-					area.selectionStart = selectionStart + input.length;
-					area.selectionEnd = selectionStart + input.length;
-				}
-			},
-		};
+					area.selectionStart = start + input.length;
+					area.selectionEnd = start + input.length;
+				},
+			};
 
-		return <textarea
-			ref={area}
-			rows="12"
-			value={props.message.content}
-			on:beforeinput={e => {
-				// Prevent undo and redo because it doesn't work with the custom keyboard.
-				if (e.inputType === "insertText" || e.inputType === "historyUndo" || e.inputType === "historyRedo") {
-					e.preventDefault();
-				}
-			}}
-			onInput={() => props.setMessage("content", area.value)}
-			onFocus={() => props.keyboard.show(handler)}
-			onClick={() => props.keyboard.show(handler)}
-			onBlur={() => {
-				if (area !== document.activeElement) {
-					props.keyboard.hide();
-				}
-			}}
-		/>;
+			onMount(() => area.scrollTop = scrollTop);
+
+			return <textarea
+				class="messageInput"
+				style={`height:${height}`}
+				ref={area}
+				value={props.message.content}
+				on:beforeinput={e => {
+					// Prevent undo and redo because it doesn't work with the custom keyboard.
+					if (e.inputType === "insertText" || e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+						e.preventDefault();
+					}
+				}}
+				onInput={() => props.setMessage("content", area.value)}
+				onFocus={() => props.keyboard.show(handler)}
+				onClick={() => props.keyboard.show(handler)}
+				onBlur={() => {
+					if (area !== document.activeElement) {
+						props.keyboard.hide();
+					}
+				}}
+			/> as HTMLElement;
+		} else {
+			let display!: SyntheticTextDisplay;
+
+			const handler: KeyboardHandler = {
+				onBackspace: () => display.backspace(),
+				onInput: input => display.insert(input),
+			};
+
+			const div = <div
+				class="messageInput"
+				style={`height:${height}`}
+				onKeyDown={e => {
+					let preventDefault = true;
+					switch (e.key) {
+						case "Backspace": { display.backspace(); break; }
+						case "Delete": { display.delete(); break; }
+						case "Clear": { display.clear(); break; }
+						case "ArrowLeft": { display.left(); break; }
+						case "ArrowRight": { display.right(); break; }
+						case "ArrowUp": { display.up(); break; }
+						case "ArrowDown": { display.down(); break; }
+						case "Home": { display.home(); break; }
+						case "End": { display.end(); break; }
+						case "Enter": { display.insert("\n"); break; }
+						default: {
+							if (
+								e.key !== ""
+								&& !e.ctrlKey
+								&& !props.keylogged
+								&& graphemeSplit(e.key).length === 1
+							) {
+								display.insert(e.key);
+							} else {
+								preventDefault = false;
+							}
+							break;
+						}
+					}
+					if (preventDefault) {
+						e.preventDefault();
+					}
+				}}
+			>
+				<SyntheticTextDisplay
+					content={props.message.content}
+					setContent={setter => props.setMessage("content", setter)}
+					padding={2}
+					overflowWrap={OverflowWrap.BreakWord}
+					onFocus={() => props.keylogged && props.keyboard.show(handler)}
+					onBlur={() => props.keyboard.hide()}
+					ref={display}
+				/>
+			</div> as HTMLElement;
+
+			onMount(() => div.scrollTop = scrollTop);
+
+			return div;
+		}
 	});
 }
 
 function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
-	return createMemo(() => {
+	return <div class="messageDisplay">{() => {
 		if (props.scraped) {
-			const [selected, setSelected] = createSignal({ start: 0, end: 0 });
-			return <SyntheticTextDisplay selected={selected()} setSelected={setSelected}>{props.message.content}</SyntheticTextDisplay>;
+			return <SyntheticTextDisplay content={props.message.content} />
 		} else {
-			return <pre class="messageDisplay">{props.message.content}</pre>;
+			return <pre>{props.message.content + "\n"}</pre>;
 		}
-	});
+	}}</div>;
 }
-
-function SyntheticTextDisplay(props: {
-	selected: { start: number, end: number },
-	setSelected: Setter<{ start: number, end: number }>,
-	children: string,
-}): JSX.Element {
-	// Width of the canvas in CSS pixels
-	const [cssWidth, setCssWidth] = createSignal(0);
-	// Width of the canvas in device pixels
-	const [deviceWidth, setDeviceWidth] = createSignal(0);
-
-	const canvas = <canvas width={deviceWidth()} /> as HTMLCanvasElement;
-	const container = <div class="messageDisplay">{canvas}</div> as HTMLDivElement;
-	const cx = canvas.getContext("2d", { alpha: false });
-	if (cx === null) {
-		return <p>Failed to set up renderer.</p>;
-	}
-
-	let observer: ResizeObserver;
-	if ("devicePixelContentBoxSize" in ResizeObserverEntry.prototype) {
-		observer = new ResizeObserver(([entry]) => {
-			setCssWidth(entry.contentBoxSize[0].inlineSize);
-			setDeviceWidth(entry.devicePixelContentBoxSize[0].inlineSize);
-		});
-	} else {
-		observer = new ResizeObserver(([entry]) => {
-			setCssWidth(entry.contentBoxSize[0].inlineSize);
-		});
-		createEffect(() => {
-			// Fall back to rounding based on device pixel ratio. This does not work always:
-			//
-			// > The device-pixel-content-box can be approximated by multiplying
-			// > devicePixelRatio by the content-box size. However, due to browser-specific
-			// > subpixel snapping behavior, authors cannot determine the correct way to round
-			// > this scaled content-box size. How a UA computes the device pixel box for an
-			// > element is implementation-dependent.
-			//
-			// <https://www.w3.org/TR/resize-observer/#resize-observer-interface>
-			setDeviceWidth(Math.round(cssWidth() * devicePixelRatio()));
-		});
-	}
-	observer.observe(container);
-
-	onMount(() => {
-		const baseMetrics = createMemo(() => {
-			const fontSize = 13 * devicePixelRatio();
-			const lineHeight = Math.floor(1.2 * fontSize);
-			cx.font = `${fontSize}px monospace`;
-
-			const spaceMetrics = cx.measureText(" ");
-			const tabWidth = spaceMetrics.width * 8;
-
-			// If `fontBoudingBox{Ascent, Descent}` is not supported, we fall back to measuring
-			// the actual bounding box of characters that (on my font) have a bounding box very
-			// close to that of the font's.
-			const ascent = spaceMetrics.fontBoundingBoxAscent
-				?? cx.measureText("Ã").actualBoundingBoxAscent;
-			const descent = spaceMetrics.fontBoundingBoxDescent
-				?? Math.round(cx.measureText("ଡ଼").actualBoundingBoxDescent);
-
-			return { fontSize, lineHeight, tabWidth, ascent, descent };
-		});
-
-		interface Grapheme {
-			content: string,
-			index: number,
-			x: number,
-			width: number,
-		}
-		const graphemes = createMemo(() => {
-			const { lineHeight, tabWidth, ascent, descent } = baseMetrics();
-
-			const graphemes: Grapheme[][] = [];
-
-			const wrapper = new WordWrapper(deviceWidth());
-			let index = 0;
-			const lines = { [Symbol.iterator]: () => lineBreaker(props.children) };
-			for (const line of lines) {
-				const content = line.slice();
-
-				const box = content.trimEnd();
-				const { x: startX, y } = wrapper.box(cx.measureText(box).width);
-
-				if (graphemes[y] === undefined) {
-					graphemes.push([]);
-					assertEq(graphemes.length, y + 1);
-				}
-
-				let x = startX;
-
-				for (const grapheme of graphemeSplit(box)) {
-					const width = cx.measureText(grapheme).width;
-					graphemes[y].push({ content: grapheme, index, x, width });
-					x += width;
-					index += grapheme.length;
-				}
-
-				for (const grapheme of graphemeSplit(content.slice(box.length))) {
-					let width: number;
-					if (grapheme === "\n") {
-						width = 1;
-						wrapper.glue(Infinity);
-					} else if (grapheme === "\t") {
-						width = Math.floor(x / tabWidth) * tabWidth + tabWidth - x;
-						wrapper.glue(width);
-					} else {
-						width = cx.measureText(grapheme).width;
-						wrapper.glue(width);
-					}
-					graphemes[y].push({ content: grapheme, index, x, width });
-					x += width;
-					index += grapheme.length;
-				}
-			}
-
-			const height = ascent + lineHeight * wrapper.y + descent;
-			canvas.height = height;
-			canvas.style.height = `${height / devicePixelRatio()}px`;
-			canvas.style.minWidth = `${wrapper.minWidth / devicePixelRatio()}px`;
-
-			return graphemes;
-		});
-
-		const [focused, setFocused] = createSignal(true);
-
-		createEffect(() => {
-			const { fontSize, lineHeight, ascent } = baseMetrics();
-
-			cx.fillStyle = "white";
-			cx.fillRect(0, 0, canvas.width, canvas.height);
-
-			const selected_ = props.selected;
-
-			for (const [yIndex, row] of graphemes().entries()) {
-				const y = ascent + lineHeight * yIndex;
-
-				for (const { content, index, x, width } of row) {
-					let text: string;
-					if (
-						index >= selected_.start && index < selected_.end
-						|| index >= selected_.end && index < selected_.start
-					) {
-						if (focused()) {
-							cx.fillStyle = "#338FFF";
-							text = "white";
-						} else {
-							cx.fillStyle = "#C8C8C8";
-							text = "#323232";
-						}
-						cx.fillRect(x, y - ascent, width + 1, lineHeight);
-					} else {
-						text = "black";
-					}
-					cx.fillStyle = text;
-					cx.font = `${fontSize}px monospace`;
-					cx.fillText(content, x, y);
-				}
-			}
-		});
-
-		const graphemeAt = (x: number, y: number): { i: number, strict: boolean } | null => {
-			const { lineHeight } = baseMetrics();
-
-			x *= devicePixelRatio();
-			y *= devicePixelRatio();
-
-			const graphemes_ = graphemes();
-			if (graphemes_.length === 0) {
-				return null;
-			}
-			if (y < 0) {
-				return { i: graphemes_[0][0].index, strict: false };
-			}
-			const yIndex = Math.floor(y / lineHeight);
-			if (yIndex >= graphemes_.length) {
-				const row = graphemes_[graphemes_.length - 1];
-				return { i: row[row.length - 1].index + 1, strict: false };
-			}
-			const row = graphemes_[yIndex];
-
-			if (x < 0) {
-				return { i: row[0].index, strict: false };
-			} else if (x >= row[row.length - 1].x + row[row.length - 1].width) {
-				return { i: row[row.length - 1].index + 1, strict: false };
-			}
-
-			let size = row.length;
-			let searchingFrom = 0;
-			let searchingTo = size;
-			for (;;) {
-				const mid = searchingFrom + (size >>> 1);
-				if (x < row[mid].x) {
-					searchingTo = mid;
-				} else if (x >= row[mid].x + row[mid].width) {
-					searchingFrom = mid + 1;
-				} else {
-					return { i: row[mid].index, strict: true };
-				}
-				size = searchingTo - searchingFrom;
-			}
-		};
-
-		canvas.addEventListener("pointerdown", e => {
-			if (e.button !== 0) {
-				return;
-			}
-			const i = graphemeAt(e.offsetX, e.offsetY)?.i;
-			if (i !== undefined) {
-				props.setSelected({ start: i, end: i });
-				getSelection()?.removeAllRanges();
-				canvas.setPointerCapture(e.pointerId);
-			}
-		});
-		canvas.addEventListener("pointermove", e => {
-			const grapheme = graphemeAt(e.offsetX, e.offsetY);
-			if (grapheme === null) {
-				return;
-			}
-
-			if (grapheme.strict) {
-				canvas.style.cursor = "text";
-			} else {
-				canvas.style.cursor = "";
-			}
-
-			if (canvas.hasPointerCapture(e.pointerId)) {
-				props.setSelected(old => ({ start: old.start, end: grapheme.i }));
-			}
-		});
-		addEventListener("selectstart", e => {
-			if (e.target !== canvas) {
-				props.setSelected({ start: 0, end: 0 });
-			}
-		});
-		addEventListener("focus", () => setFocused(true));
-		addEventListener("blur", () => setFocused(false));
-		addEventListener("copy", (e: ClipboardEvent) => {
-			const selected_ = props.selected;
-			if (selected_.start !== selected_.end) {
-				const start = Math.min(selected_.start, selected_.end);
-				const end = Math.max(selected_.start, selected_.end);
-				e.clipboardData?.setData("text/plain", props.children.slice(start, end));
-				e.preventDefault();
-			}
-		});
-	});
-
-	return container;
-}
-
-class WordWrapper {
-	x: number;
-	y: number;
-	minWidth: number;
-
-	constructor(public width: number) {
-		this.x = 0;
-		this.y = 0;
-		this.minWidth = 0;
-	}
-
-	box(width: number): { x: number, y: number } {
-		if (this.x !== 0 && this.x + width > this.width) {
-			this.x = 0;
-			this.y += 1;
-		}
-		const coord = { x: this.x, y: this.y };
-		this.x += width;
-		this.minWidth = Math.max(this.minWidth, width);
-		return coord;
-	}
-
-	glue(width: number): void {
-		this.x += width;
-	}
-}
-
-const devicePixelRatio = (() => {
-	const [dpr, setDpr] = createSignal(window.devicePixelRatio);
-
-	const updater = (): void => {
-		const pr = window.devicePixelRatio;
-		setDpr(pr);
-		matchMedia(`(resolution: ${pr}dppx)`).addEventListener("change", updater, { once: true });
-	};
-	updater();
-
-	return dpr;
-})();
 
 declare module "solid-js" {
 	namespace JSX {

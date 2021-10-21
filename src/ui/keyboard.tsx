@@ -1,6 +1,6 @@
 // On-screen keyboard
 
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, onCleanup } from "solid-js";
 import { For } from "solid-js";
 import { JSX } from "solid-js";
 
@@ -22,6 +22,7 @@ interface KeyState {
 }
 
 enum Special {
+	Backspace,
 	CapsLock,
 	Shift,
 	Alt,
@@ -68,7 +69,7 @@ const layout: Key[][] = buildLayout([
 		{ width: 1, normal: "0", shift: ")" },
 		{ width: 1, normal: "-", shift: "_" },
 		{ width: 1, normal: "=", shift: "+" },
-		{ width: 2, normal: { display: "⌫", function: "\x08" } },
+		{ width: 2, normal: { display: "⌫", function: Special.Backspace } },
 	],
 	[
 		{ width: 1.5, normal: { display: "↹", function: "\x09" } },
@@ -145,6 +146,7 @@ enum ShiftMode {
 
 export interface KeyboardHandler {
 	onInput: (key: string) => void,
+	onBackspace: () => void,
 }
 
 export default class {
@@ -169,19 +171,26 @@ export default class {
 		const [shiftMode, setShiftMode] = createSignal(ShiftMode.Normal);
 		const [altMode, setAltMode] = createSignal(false);
 
-		addEventListener("keydown", e => {
+		const onKeyDown = (e: KeyboardEvent): void => {
 			if (e.key === "Shift") {
 				setShiftMode(ShiftMode.Shift);
 			} else if (e.key === "Alt") {
 				setAltMode(true);
 			}
-		});
-		addEventListener("keyup", e => {
+		};
+		const onKeyUp = (e: KeyboardEvent): void => {
 			if (e.key === "Shift") {
 				setShiftMode(ShiftMode.Normal);
 			} else if (e.key === "Alt") {
 				setAltMode(false);
 			}
+		};
+
+		addEventListener("keydown", onKeyDown);
+		addEventListener("keyup", onKeyUp);
+		onCleanup(() => {
+			removeEventListener("keydown", onKeyDown);
+			removeEventListener("keyup", onKeyUp);
 		});
 
 		const element = <div
@@ -207,6 +216,10 @@ export default class {
 				const onClick = (e: MouseEvent): void => {
 					const func = state().function;
 					switch (func) {
+						case Special.Backspace: {
+							this.handler()?.onBackspace();
+							break;
+						}
 						case Special.CapsLock: {
 							setShiftMode(mode => (
 								mode === ShiftMode.CapsLock ? ShiftMode.Normal : ShiftMode.CapsLock

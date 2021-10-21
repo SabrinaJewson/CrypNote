@@ -77,19 +77,52 @@
 			border-radius: 5px;
 			padding: 0 10px;
 		}
-
 	}
 }
 
-div.messageDisplay {
-	> canvas {
-		display: block;
-		width: 100%;
+.messageInput {
+	border: 1px solid #767676;
+	border-radius: 2px;
+	resize: vertical;
+
+	&:focus, &:focus-within {
+		outline: #E59700 auto 1px;
 	}
 }
-pre.messageDisplay {
-	margin: 0;
-	white-space: pre-wrap;
+
+textarea.messageInput {
+	display: block;
 	font-size: 13px;
 	line-height: 1.2;
+}
+
+div.messageInput {
+	overflow-y: auto;
+	cursor: text;
+
+	> .syntheticTextDisplay {
+		width: 100%;
+		height: 100%;
+	}
+}
+
+.messageDisplay {
+	> .syntheticTextDisplay {
+		width: 100%;
+		height: 0;
+	}
+	> pre {
+		margin: 0;
+		white-space: pre-wrap;
+		font-size: 13px;
+		line-height: 1.2;
+	}
+}
+
+.syntheticTextDisplay {
+	display: block;
+
+	&:focus {
+		outline: none;
+	}
 }
