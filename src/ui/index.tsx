@@ -147,6 +147,9 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 						const [unlockedAccount, setUnlockedAccount] = createStore(unlocked);
 						setCurrentAccount([account, unlockedAccount, setUnlockedAccount]);
 					}}
+					keylogged={keylogged()}
+					scraped={scraped()}
+					keyboard={props.keyboard}
 				/>
 			</Match>
 		</Switch>

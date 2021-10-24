@@ -1,12 +1,14 @@
 import { Match, Show, Switch } from "solid-js";
-import { createEffect, createMemo, createResource, createSignal } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, on } from "solid-js";
 import { JSX } from "solid-js";
 
 import { Bytes, BytesReader } from "../bytes";
 import { Exportable, Importable } from "./exportable";
 import { IncorrectPassword, LockedAccount, TamperedError, UnlockedAccount, createAccount } from "../lib";
 import { InvalidFormatError, OutdatedError } from "../serde";
+import Keyboard from "./keyboard";
 import OrderableList from "./orderableList";
+import PasswordInput from "./passwordInput";
 import { ReactiveAccount } from ".";
 import { eq } from "../eq";
 import { exhausted } from "../index";
@@ -19,6 +21,9 @@ export default function(props: {
 	accountBin: LockedAccount[],
 	setAccountBin: (updater: (old: LockedAccount[]) => LockedAccount[]) => void,
 	onLogin: (account: ReactiveAccount, unlocked: UnlockedAccount) => void,
+	keylogged: boolean,
+	scraped: boolean,
+	keyboard: Keyboard,
 }): JSX.Element {
 	enum SelectedPage { Create, Import }
 	const [selected, setSelected] = createSignal<null | SelectedPage | ReactiveAccount | LockedAccount>(null);
@@ -92,6 +97,9 @@ export default function(props: {
 						props.setAccounts(accounts => arrayRemove(accounts, selected_));
 						props.setAccountBin(bin => [...bin, selected_.locked()]);
 					}}
+					keylogged={props.keylogged}
+					scraped={props.scraped}
+					keyboard={props.keyboard}
 				/>;
 			}
 
@@ -116,13 +124,18 @@ export default function(props: {
 			}
 
 			if (selected_ === SelectedPage.Create) {
-				return <CreateAccount onCreated={async inputs => {
-					const account = ReactiveAccount.new(await LockedAccount.lock(
-						await createAccount(inputs.name, inputs.password)
-					));
-					props.setAccounts(accounts => [...accounts, account]);
-					setSelected(account);
-				}} />
+				return <CreateAccount
+					onCreated={async inputs => {
+						const account = ReactiveAccount.new(await LockedAccount.lock(
+							await createAccount(inputs.name, inputs.password)
+						));
+						props.setAccounts(accounts => [...accounts, account]);
+						setSelected(account);
+					}}
+					keylogged={props.keylogged}
+					scraped={props.scraped}
+					keyboard={props.keyboard}
+				/>
 			}
 
 			if (selected_ === SelectedPage.Import) {
@@ -160,39 +173,30 @@ function Account(props: {
 	account: LockedAccount,
 	onLogin: (unlocked: UnlockedAccount) => void,
 	onDelete: () => void,
+	keylogged: boolean,
+	scraped: boolean,
+	keyboard: Keyboard,
 }): JSX.Element {
 	const [loggingIn, setLoggingIn] = createSignal(false);
 	const [error, setError] = createSignal("");
-
-	let previousTimeout: null | number = null;
-	createEffect(() => {
-		if (previousTimeout !== null) {
-			clearTimeout(previousTimeout);
-		}
-		if (error() !== "") {
-			previousTimeout = window.setTimeout(
-				() => {
-					previousTimeout = null;
-					setError("");
-				},
-				3000,
-			);
-		}
-	});
+	const [password, setPassword] = createSignal("");
+	createEffect(on(password, () => setError("")));
 
 	// TODO: remove
-	void (async () => {
-		props.onLogin(await props.account.unlock("a"));
-	})();
+	// void (async () => {
+	// 	props.onLogin(await props.account.unlock("a"));
+	// })();
 
 	return <>
-		<form action="javascript:void(0)" onSubmit={e => {
-			const elements = (e.target as HTMLFormElement).elements;
-			const password = (elements.namedItem("password") as HTMLInputElement).value;
+		<form action="javascript:void(0)" onSubmit={() => {
+			if (password() === "") {
+				setError("Enter a password");
+				return;
+			}
 
 			void (async () => {
 				try {
-					props.onLogin(await props.account.unlock(password));
+					props.onLogin(await props.account.unlock(password()));
 				} catch (e) {
 					if (e instanceof IncorrectPassword) {
 						setError("Incorrect password");
@@ -211,9 +215,16 @@ function Account(props: {
 			<h1>Log in</h1>
 			<p>Account name: {props.account.publicData.name}</p>
 			<p>Public key: <code>{props.account.publicData.dsaPublicKey.toString()}</code></p>
-			<p><label>Password: <input type="password" name="password" required /></label></p>
+			<p><PasswordInput
+				label="Password: "
+				value={password()}
+				setValue={setPassword}
+				keylogged={props.keylogged}
+				scraped={props.scraped}
+				keyboard={props.keyboard}
+			/></p>
 			<button disabled={loggingIn()}>Log in</button>
-			<Show when={error() !== ""}><p class="error">{error()}</p></Show>
+			<Show when={error() !== ""}><p class="error" onClick={() => setError("")}>{error()}</p></Show>
 		</form>
 		<p><button type="button" class="warn" onClick={props.onDelete}>Delete Account</button></p>
 		<p>
@@ -230,18 +241,40 @@ function Account(props: {
 	</>;
 }
 
-function CreateAccount(props: { onCreated: (account: { name: string, password: string }) => void }): JSX.Element {
+function CreateAccount(props: {
+	onCreated: (account: { name: string, password: string }) => void,
+	keylogged: boolean,
+	scraped: boolean,
+	keyboard: Keyboard,
+}): JSX.Element {
+	const [error, setError] = createSignal("");
+	const [password, setPassword] = createSignal("");
+	createEffect(on(password, () => setError("")));
+
 	return <form action="javascript:void(0)" onSubmit={e => {
+		if (password() === "") {
+			setError("Enter a password");
+			return;
+		}
+
 		const elements = (e.target as HTMLFormElement).elements;
 		props.onCreated({
 			name: (elements.namedItem("name") as HTMLInputElement).value,
-			password: (elements.namedItem("password") as HTMLInputElement).value,
+			password: password(),
 		});
 	}}>
 		<h1>Create an account</h1>
 		<p><label>Name: <input type="text" name="name" required maxlength="255" /></label></p>
-		<p><label>Password: <input type="password" name="password" required /></label></p>
+		<p><PasswordInput
+			label="Password: "
+			value={password()}
+			setValue={setPassword}
+			keylogged={props.keylogged}
+			scraped={props.scraped}
+			keyboard={props.keyboard}
+		/></p>
 		<button>Create account</button>
+		<Show when={error() !== ""}><p class="error" onClick={() => setError("")}>{error()}</p></Show>
 	</form>;
 }
 

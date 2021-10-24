@@ -163,8 +163,10 @@ export default class {
 		this.setHandler(handler);
 	}
 
-	hide(): void {
-		this.setHandler(null);
+	hide(handler: KeyboardHandler): void {
+		if (this.handler() === handler) {
+			this.setHandler(null);
+		}
 	}
 
 	private element_(): JSX.Element {
