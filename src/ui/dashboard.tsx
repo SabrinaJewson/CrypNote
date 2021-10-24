@@ -1,21 +1,23 @@
 import { For, Show } from "solid-js";
 import { SetStoreFunction, Store, createStore } from "solid-js/store";
-import { createMemo, createResource, createSignal, onMount } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, on, onMount } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
-import graphemeSplit from "graphemesplit";
 
 import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
 import { Exportable, Importable } from "./exportable";
 import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
-import Keyboard, { KeyboardHandler } from "./keyboard";
 import { SharedContact, UnlockedAccount, UnlockedPassword } from "../lib";
 import SyntheticTextBox, { OverflowWrap } from "./syntheticTextBox";
 import { Bytes } from "../bytes";
+import Keyboard from "./keyboard";
 import OrderableList from "./orderableList";
+import PasswordInput from "./passwordInput";
 import { eq } from "../eq";
 import { exhausted } from "../index";
+import { keylogProtect } from "./keylogProtect";
+false && keylogProtect; // Required to prevent dead-code elimination removing the above import
 
 import "./dashboard.scss";
 
@@ -31,7 +33,7 @@ export default function(props: {
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove
-	setScreen(Screen.Encrypt);
+	setScreen(Screen.UserProfile);
 
 	const outerProps = props;
 
@@ -368,12 +370,11 @@ function UserProfile(props: ScreenProps): JSX.Element {
 		return contactCard(await SharedContact.ofAccount(props.account));
 	});
 
-	const check = (e: InputEvent): void => {
-		const form = (e.target as HTMLInputElement).form!;
-		const newPassword = form.elements.namedItem("new") as HTMLInputElement;
-		const confirmPassword = form.elements.namedItem("confirm") as HTMLInputElement;
-		confirmPassword.setCustomValidity(newPassword.value === confirmPassword.value ? "" : "Passwords do not match");
-	};
+	const [error, setError] = createSignal("");
+
+	const [newPassword, setNewPassword] = createSignal("");
+	const [confirmPassword, setConfirmPassword] = createSignal("");
+	createEffect(on([newPassword, confirmPassword], () => setError("")));
 
 	const changedPassword = new FadingState();
 
@@ -392,18 +393,39 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				also be attached to every message you encrypt or sign.
 			</p>
 		</Show>
-		<form action="javascript:void(0)" onSubmit={e => {
-			const elements = (e.target as HTMLFormElement).elements;
-			const newPassword = elements.namedItem("new") as HTMLInputElement;
+		<form action="javascript:void(0)" onSubmit={() => {
+			if (newPassword() === "") {
+				setError("Enter a new password");
+				return;
+			}
+			if (newPassword() !== confirmPassword()) {
+				setError("Passwords do not match");
+				return;
+			}
 			void (async () => {
-				props.setAccount("password", await UnlockedPassword.new(newPassword.value));
+				props.setAccount("password", await UnlockedPassword.new(newPassword()));
 				changedPassword.show();
 			})();
 		}}>
 			<h2>Change password</h2>
-			<p><label>New password: <input type="password" name="new" required onInput={check} /></label></p>
-			<p><label>Confirm new password: <input type="password" name="confirm" required onInput={check} /></label></p>
+			<p><PasswordInput
+				label="New password: "
+				value={newPassword()}
+				setValue={setNewPassword}
+				keylogged={props.keylogged}
+				scraped={props.scraped}
+				keyboard={props.keyboard}
+			/></p>
+			<p><PasswordInput
+				label="Confirm password: "
+				value={confirmPassword()}
+				setValue={setConfirmPassword}
+				keylogged={props.keylogged}
+				scraped={props.scraped}
+				keyboard={props.keyboard}
+			/></p>
 			<button>Change password</button>
+			<Show when={error() !== ""}><p class="error" onClick={() => setError("")}>{error()}</p></Show>
 			<Fading state={changedPassword}>{<p>Changed password!</p> as HTMLElement}</Fading>
 		</form>
 	</>;
@@ -418,137 +440,42 @@ function MessageInput(props: {
 }): JSX.Element {
 	return createMemo<HTMLElement>(oldEl => {
 		const height = oldEl === undefined ? "264px" : oldEl.style.height;
-		const scrollTop = oldEl === undefined ? 0 : oldEl.scrollTop;
 
-		if (!props.keylogged && !props.scraped) {
-			const area = <textarea
-				class="messageInput"
-				style={`height:${height}`}
-				value={props.message.content}
-				onInput={e => props.setMessage("content", (e.target as HTMLTextAreaElement).value)}
-			/> as HTMLElement;
-			onMount(() => area.scrollTop = scrollTop);
-			return area;
-		} else if (props.keylogged && !props.scraped) {
-			let area!: HTMLTextAreaElement;
-
-			const handler: KeyboardHandler = {
-				onBackspace: () => {
-					const [start, end] = [area.selectionStart, area.selectionEnd];
-					if (start === end) {
-						if (start === 0) {
-							return;
-						}
-						// TODO: Work using graphemes
-						props.setMessage("content", content => {
-							return content.slice(0, start - 1) + content.slice(end);
-						});
-						area.selectionStart = start - 1;
-						area.selectionEnd = start - 1;
-					} else {
-						props.setMessage("content", content => {
-							return content.slice(0, start) + content.slice(end);
-						});
-						area.selectionEnd = start;
-					}
-				},
-				onInput: input => {
-					const [start, end] = [area.selectionStart, area.selectionEnd];
-					props.setMessage("content", content => {
-						return content.slice(0, start) + input + content.slice(end);
-					});
-					area.selectionStart = start + input.length;
-					area.selectionEnd = start + input.length;
-				},
-			};
-
-			onMount(() => area.scrollTop = scrollTop);
-
-			return <textarea
-				class="messageInput"
-				style={`height:${height}`}
-				ref={area}
-				value={props.message.content}
-				on:beforeinput={e => {
-					// Prevent undo and redo because it doesn't work with the custom keyboard.
-					if (e.inputType === "insertText" || e.inputType === "historyUndo" || e.inputType === "historyRedo") {
-						e.preventDefault();
-					}
-				}}
-				onInput={() => props.setMessage("content", area.value)}
-				onFocus={() => props.keyboard.show(handler)}
-				onClick={() => props.keyboard.show(handler)}
-				onBlur={() => {
-					if (area !== document.activeElement) {
-						props.keyboard.hide();
-					}
-				}}
-			/> as HTMLElement;
-		} else {
-			let display!: SyntheticTextBox;
-
-			const handler: KeyboardHandler = {
-				onBackspace: () => display.backspace(),
-				onInput: input => display.insert(input),
-			};
-
-			const div = <div
-				class="messageInput"
-				style={`height:${height}`}
-				onKeyDown={e => {
-					let preventDefault = true;
-					switch (e.key) {
-						case "Backspace": { display.backspace(); break; }
-						case "Delete": { display.delete(); break; }
-						case "Clear": { display.clear(); break; }
-						case "ArrowLeft": { display.left(); break; }
-						case "ArrowRight": { display.right(); break; }
-						case "ArrowUp": { display.up(); break; }
-						case "ArrowDown": { display.down(); break; }
-						case "Home": { display.home(); break; }
-						case "End": { display.end(); break; }
-						case "Enter": { display.insert("\n"); break; }
-						default: {
-							if (
-								e.key !== ""
-								&& !e.ctrlKey
-								&& !props.keylogged
-								&& graphemeSplit(e.key).length === 1
-							) {
-								display.insert(e.key);
-							} else {
-								preventDefault = false;
-							}
-							break;
-						}
-					}
-					if (preventDefault) {
-						e.preventDefault();
-					}
-				}}
-			>
+		let element: HTMLElement;
+		if (props.scraped) {
+			element = <div class="messageInput" style={`height:${height}`}>
 				<SyntheticTextBox
 					content={props.message.content}
 					setContent={setter => props.setMessage("content", setter)}
 					padding={2}
-					overflowWrap={OverflowWrap.BreakWord}
-					onFocus={() => props.keylogged && props.keyboard.show(handler)}
-					onBlur={() => props.keyboard.hide()}
-					ref={display}
+					textWrap
+					overflowWrap={OverflowWrap.Anywhere}
+					keyboard={props.keylogged ? props.keyboard : undefined}
 				/>
 			</div> as HTMLElement;
-
-			onMount(() => div.scrollTop = scrollTop);
-
-			return div;
+		} else {
+			element = <textarea
+				class="messageInput"
+				style={`height:${height}`}
+				use:keylogProtect={{
+					content: () => props.message.content,
+					setContent: v => props.setMessage("content", v),
+					keyboard: () => props.keyboard,
+					enable: () => props.keylogged,
+				}}
+			/> as HTMLElement;
 		}
+
+		onMount(() => element.scrollTop = oldEl === undefined ? 0 : oldEl.scrollTop);
+
+		return element;
 	});
 }
 
 function DisplayMessage(props: { scraped: boolean, message: Message }): JSX.Element {
 	return <div class="messageDisplay">{() => {
 		if (props.scraped) {
-			return <SyntheticTextBox content={props.message.content} />
+			return <SyntheticTextBox textWrap content={props.message.content} />
 		} else {
 			return <pre>{props.message.content + "\n"}</pre>;
 		}

@@ -98,9 +98,9 @@ textarea.messageInput {
 
 div.messageInput {
 	overflow-y: auto;
-	cursor: text;
 
 	> .syntheticTextBox {
+		display: block;
 		width: 100%;
 		height: 100%;
 	}
@@ -108,6 +108,7 @@ div.messageInput {
 
 .messageDisplay {
 	> .syntheticTextBox {
+		display: block;
 		width: 100%;
 		height: 0;
 	}
@@ -119,10 +120,6 @@ div.messageInput {
 	}
 }
 
-.syntheticTextBox {
-	display: block;
-
-	&:focus {
-		outline: none;
-	}
+.syntheticTextBox:focus {
+	outline: none;
 }

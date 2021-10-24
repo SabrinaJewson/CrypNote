@@ -62,3 +62,29 @@
 		padding: 0 20px;
 	}
 }
+
+.passwordInputBox {
+	display: inline-block;
+	width: 182px;
+	border: 1px solid #767676;
+	border-radius: 2px;
+
+	&:focus, &:focus-within {
+		outline: #E59700 auto 1px;
+	}
+}
+
+input.passwordInputBox {
+	font-size: 13px;
+	font-family: Arial;
+}
+
+span.passwordInputBox {
+	vertical-align: middle;
+	line-height: 0;
+	overflow-x: auto;
+
+	> .syntheticTextBox {
+		width: 100%;
+	}
+}
