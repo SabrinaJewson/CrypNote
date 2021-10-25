@@ -25,7 +25,7 @@ export default function(props: {
 	scraped: boolean,
 	keyboard: Keyboard,
 }): JSX.Element {
-	enum SelectedPage { Create, Import }
+	const enum SelectedPage { Create, Import }
 	const [selected, setSelected] = createSignal<null | SelectedPage | ReactiveAccount | LockedAccount>(null);
 	// TODO: remove
 	setSelected(props.accounts[0]);
@@ -306,7 +306,7 @@ function ImportAccount(props: {
 		}
 	});
 
-	enum OperationKind { Import, Replace, Restore }
+	const enum OperationKind { Import, Replace, Restore }
 
 	const operation = createMemo(() => {
 		const account_ = account();

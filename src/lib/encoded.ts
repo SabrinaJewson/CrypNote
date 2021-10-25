@@ -6,13 +6,13 @@ import { SharedContact, UnlockedAccount } from "./account";
 import { readLenBuffer, readUint8 } from "../serde";
 import { writeLenBuffer, writeUint8 } from "../serde";
 
-export enum DecodedKind { Message, Signed, SharedContact }
+export const enum DecodedKind { Message, Signed, SharedContact }
 export type Decoded = never
 	| { kind: DecodedKind.Message, sender: SharedContact, message: Message | null }
 	| { kind: DecodedKind.Signed, sender: SharedContact, message: Message, verified: boolean }
 	| { kind: DecodedKind.SharedContact, contact: SharedContact };
 
-export enum MessageKind { Text }
+export const enum MessageKind { Text }
 export type Message = never
 	| { kind: MessageKind.Text, content: string };
 

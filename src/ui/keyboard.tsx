@@ -21,7 +21,7 @@ interface KeyState {
 	function: string | Special,
 }
 
-enum Special {
+const enum Special {
 	Backspace,
 	CapsLock,
 	Shift,
@@ -138,7 +138,7 @@ test("keyboard row widths are equal", () => {
 	}
 });
 
-enum ShiftMode {
+const enum ShiftMode {
 	Normal,
 	Shift,
 	CapsLock,

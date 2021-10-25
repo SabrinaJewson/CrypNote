@@ -12,7 +12,7 @@ import { addSelectAllListener, removeSelectAllListener } from "../onSelectAll";
 // since the text box would overflow anyway if it were smaller than the intrinsic size, behaviour
 // is nearly identical. In other words, only `overflow-wrap: break-word` causes text boxes to have
 // an intrinsic size that is greater than its minimum size.
-export enum OverflowWrap { Normal, Anywhere }
+export const enum OverflowWrap { Normal, Anywhere }
 
 type WrappingProps = { textWrap: true, overflowWrap?: OverflowWrap }
 	| { textWrap?: false, onSubmit?: () => void };
