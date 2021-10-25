@@ -11,6 +11,7 @@ import OrderableList from "./orderableList";
 import PasswordInput from "./passwordInput";
 import { ReactiveAccount } from ".";
 import { exhausted } from "../index";
+import { runTests } from "../test";
 
 import "./accounts.scss";
 
@@ -22,9 +23,11 @@ export default function(props: {
 	onLogin: (account: ReactiveAccount, unlocked: UnlockedAccount) => void,
 	keylogged: boolean,
 	scraped: boolean,
+	setKeylogged: (v: boolean) => void,
+	setScraped: (v: boolean) => void,
 	keyboard: Keyboard,
 }): JSX.Element {
-	const enum SelectedPage { Create, Import }
+	const enum SelectedPage { Create, Import, Settings }
 	const [selected, setSelected] = createSignal<null | SelectedPage | ReactiveAccount | LockedAccount>(null);
 	// TODO: remove
 	setSelected(props.accounts[0]);
@@ -58,6 +61,7 @@ export default function(props: {
 				<button type="button" onClick={() => setSelected(SelectedPage.Create)}>Create account</button>
 				<button type="button" onClick={() => setSelected(SelectedPage.Import)}>Import account</button>
 				<button type="button" onClick={() => showBin(true)}>Show account bin</button>
+				<button type="button" onClick={() => setSelected(SelectedPage.Settings)}>Settings</button>
 			</Show>
 			<Show when={binShown()}>
 				<div onClick={() => showBin(false)}>Back</div>
@@ -144,6 +148,15 @@ export default function(props: {
 						props.setAccounts(accounts => [...accounts, account]);
 						setSelected(account);
 					}}
+				/>;
+			}
+
+			if (selected_ === SelectedPage.Settings) {
+				return <Settings
+					keylogged={props.keylogged}
+					scraped={props.scraped}
+					setKeylogged={props.setKeylogged}
+					setScraped={props.setScraped}
 				/>;
 			}
 
@@ -317,6 +330,36 @@ function ImportAccount(props: { onImport: (account: LockedAccount) => void }): J
 			exhausted(account_);
 		}}
 	</form>;
+}
+
+function Settings(props: {
+	keylogged: boolean,
+	scraped: boolean,
+	setKeylogged: (v: boolean) => void,
+	setScraped: (v: boolean) => void,
+}): JSX.Element {
+	return <>
+		<h1>Settings</h1>
+		<p><label>
+			Enable keylogger protection:
+			<input
+				type="checkbox"
+				checked={props.keylogged}
+				onInput={e => props.setKeylogged((e.target as HTMLInputElement).checked)}
+			/>
+		</label></p>
+		<p><label>
+			Enable scraper protection:
+			<input
+				type="checkbox"
+				checked={props.scraped}
+				onInput={e => props.setScraped((e.target as HTMLInputElement).checked)}
+			/>
+		</label></p>
+		<Show when={process.env.NODE_ENV !== "production"}>
+			<button type="button" onClick={() => void runTests()}>Run tests</button>
+		</Show>
+	</>;
 }
 
 function arrayRemove<T>(array: readonly T[], remove: T): T[] {
