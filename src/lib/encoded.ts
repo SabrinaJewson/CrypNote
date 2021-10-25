@@ -1,3 +1,5 @@
+import { deflateRaw, inflateRaw } from "pako";
+
 import { Bytes, BytesMut, BytesReader } from "../bytes";
 import { InvalidFormatError, OutdatedError } from "../serde";
 import { SharedContact, UnlockedAccount } from "./account";
@@ -166,11 +168,23 @@ function readMessage(reader: BytesReader): Message {
 			reader.advance(reader.bytes.length);
 			return { kind: MessageKind.Text, content };
 		}
+		case 1: {
+			const content = inflateRaw(reader.bytes.asImmutableArray(), { to: "string" });
+			reader.advance(reader.bytes.length);
+			return { kind: MessageKind.Text, content };
+		}
 		default: throw new OutdatedError();
 	}
 }
 
 function writeMessage(writer: BytesMut, message: Message): void {
-	writeUint8(writer, 0); // version number
-	writer.extend(new TextEncoder().encode(message.content));
+	const bytes = new TextEncoder().encode(message.content);
+	const compressed = deflateRaw(bytes, { level: 9 });
+	if (compressed.length < bytes.length) {
+		writeUint8(writer, 1);
+		writer.extend(compressed);
+	} else {
+		writeUint8(writer, 0);
+		writer.extend(bytes);
+	}
 }
