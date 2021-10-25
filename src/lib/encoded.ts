@@ -1,14 +1,18 @@
 import { deflateRaw, inflateRaw } from "pako";
 
 import { Bytes, BytesMut, BytesReader } from "../bytes";
+import { Contact, SharedContact, UnlockedAccount } from "./account";
 import { InvalidFormatError, OutdatedError } from "../serde";
-import { SharedContact, UnlockedAccount } from "./account";
+import { StoredPrivateKey, StoredPublicKey } from "./crypto";
 import { readLenBuffer, readUint8 } from "../serde";
 import { writeLenBuffer, writeUint8 } from "../serde";
+import { eq } from "../eq";
 
-export const enum DecodedKind { Message, Signed, SharedContact }
+export const enum DecodedKind { SentToUnknown, SentMessage, ReceivedMessage, Signed, SharedContact }
 export type Decoded = never
-	| { kind: DecodedKind.Message, sender: SharedContact, message: Message | null }
+	| { kind: DecodedKind.SentToUnknown }
+	| { kind: DecodedKind.SentMessage, receiver: Contact, message: Message }
+	| { kind: DecodedKind.ReceivedMessage, sender: SharedContact, message: Message | null }
 	| { kind: DecodedKind.Signed, sender: SharedContact, message: Message, verified: boolean }
 	| { kind: DecodedKind.SharedContact, contact: SharedContact };
 
@@ -16,27 +20,23 @@ export const enum MessageKind { Text }
 export type Message = never
 	| { kind: MessageKind.Text, content: string };
 
-export class NotForYouError { private _: undefined; }
-
 // This function is resistant to mutations to `me`.
 export async function decode(me: UnlockedAccount, bytes: Bytes): Promise<Decoded> {
 	const dhPrivateKey = me.dhKeyPair.privateKey;
+	const dsaPublicKey = me.publicData.dsaPublicKey;
 	const reader = new BytesReader(bytes);
 
 	switch (readUint8(reader)) {
 		case 0: {
+			const contacts = me.contacts.map(contact => ({
+				shared: contact.shared,
+				nickname: contact.nickname,
+				note: contact.note,
+			}));
+
 			const senderBytesStart = reader.bytes;
 			const sender = await SharedContact.readFrom(reader);
 			const senderBytes = senderBytesStart.slice(0, senderBytesStart.length - reader.bytes.length);
-
-			const key = await crypto.subtle.deriveKey(
-				{ name: "ECDH", public: sender.dhPublicKey.inner },
-				dhPrivateKey.inner,
-				{ name: "AES-GCM", length: 256 },
-				false,
-				["decrypt"],
-			);
-
 			const iv = readLenBuffer(reader, 1);
 			const ciphertext = readLenBuffer(reader, 4);
 
@@ -44,26 +44,29 @@ export async function decode(me: UnlockedAccount, bytes: Bytes): Promise<Decoded
 				throw new InvalidFormatError();
 			}
 
-			let decrypted: Bytes | null = null;
-			try {
-				decrypted = Bytes.fromImmutableBuffer(await crypto.subtle.decrypt(
-					{
-						name: "AES-GCM",
-						iv: iv.asImmutableArray(),
-						additionalData: senderBytes.asImmutableArray(),
-					},
-					key,
-					ciphertext.asImmutableArray(),
-				));
-			} catch (e) {
-				if (!(e instanceof Error && e.name === "OperationError")) {
-					throw e;
+			const message = await decryptMessage(
+				sender.dhPublicKey,
+				dhPrivateKey,
+				ciphertext,
+				senderBytes,
+				iv,
+			);
+			if (message === null && eq(sender.dsaPublicKey, dsaPublicKey)) {
+				for (const contact of contacts) {
+					const message = await decryptMessage(
+						contact.shared.dhPublicKey,
+						dhPrivateKey,
+						ciphertext,
+						senderBytes,
+						iv,
+					);
+					if (message !== null) {
+						return { kind: DecodedKind.SentMessage, receiver: contact, message };
+					}
 				}
+				return { kind: DecodedKind.SentToUnknown };
 			}
-
-			const message = decrypted === null ? null : readMessage(new BytesReader(decrypted));
-
-			return { kind: DecodedKind.Message, sender, message };
+			return { kind: DecodedKind.ReceivedMessage, sender, message };
 		}
 		case 1: {
 			const sender = await SharedContact.readFrom(reader);
@@ -89,6 +92,41 @@ export async function decode(me: UnlockedAccount, bytes: Bytes): Promise<Decoded
 		}
 		default: throw new OutdatedError();
 	}
+}
+
+async function decryptMessage(
+	publicKey: StoredPublicKey,
+	privateKey: StoredPrivateKey,
+	ciphertext: Bytes,
+	additionalData: Bytes,
+	iv: Bytes,
+): Promise<Message | null> {
+	const key = await crypto.subtle.deriveKey(
+		{ name: "ECDH", public: publicKey.inner },
+		privateKey.inner,
+		{ name: "AES-GCM", length: 256 },
+		false,
+		["decrypt"],
+	);
+
+	let decrypted: Bytes;
+	try {
+		decrypted = Bytes.fromImmutableBuffer(await crypto.subtle.decrypt(
+			{
+				name: "AES-GCM",
+				iv: iv.asImmutableArray(),
+				additionalData: additionalData.asImmutableArray(),
+			},
+			key,
+			ciphertext.asImmutableArray(),
+		));
+	} catch (e) {
+		if (!(e instanceof Error && e.name === "OperationError")) {
+			throw e;
+		}
+		return null;
+	}
+	return readMessage(new BytesReader(decrypted));
 }
 
 // This function is resistant to mutations to `me` and `message`.
