@@ -9,6 +9,8 @@
 
 		> .key {
 			user-select: none;
+			-moz-user-select: none;
+			-webkit-user-select: none;
 
 			> div {
 				height: 50px;

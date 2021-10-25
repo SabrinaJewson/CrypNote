@@ -39,3 +39,7 @@ textarea {
 		bottom: 0;
 	}
 }
+
+.syntheticTextBox:focus {
+	outline: none;
+}

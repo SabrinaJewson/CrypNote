@@ -22,7 +22,7 @@ export default function<T>(props: {
 			const handle = (props: { children?: JSX.Element }): JSX.Element => {
 				return <div
 					class="handle"
-					draggable
+					draggable={true}
 					onDragStart={e => {
 						e.dataTransfer!.dropEffect = "move";
 						e.dataTransfer!.effectAllowed = "move";
