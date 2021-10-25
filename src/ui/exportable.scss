@@ -1,14 +1,23 @@
 .exportable {
-	> pre {
+	margin: 13px 0;
+
+	> pre,textarea {
 		word-break: break-all;
+	}
+	> pre {
 		white-space: pre-wrap;
 		max-width: 60ch;
+		margin: 4px 0;
+	}
+	> textarea {
+		resize: vertical;
 	}
 }
 
 .importable {
 	> textarea {
 		resize: vertical;
+		word-break: break-all;
 		&.invalid {
 			border-color: red;
 		}

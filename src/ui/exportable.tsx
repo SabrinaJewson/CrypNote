@@ -9,10 +9,14 @@ import "./exportable.scss";
 
 export function Exportable(props: { data: Bytes }): JSX.Element {
 	const data = createMemo(() => base64UrlEncode(props.data));
+	const overThreshold = createMemo(() => data().length > 1000);
 	const copied = new FadingState();
 
 	return <div class="exportable">
-		<pre>{data()}</pre>
+		{() => overThreshold()
+			? <textarea value={data()} readonly rows={6} />
+			: <pre>{data()}</pre>
+		}
 		<button type="button" onClick={() => {
 			void (async () => {
 				await navigator.clipboard.writeText(data());
