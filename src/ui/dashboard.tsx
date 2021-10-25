@@ -441,8 +441,10 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				keyboard={props.keyboard}
 			/></p>
 			<button>Change password</button>
-			<Show when={error() !== ""}><p class="error" onClick={() => setError("")}>{error()}</p></Show>
-			<Fading state={changedPassword}>{<p>Changed password!</p> as HTMLElement}</Fading>
+			<Show when={error() !== ""}>
+				<span class="error" onClick={() => setError("")}>{" " + error()}</span>
+			</Show>
+			<Fading state={changedPassword}>{<span> Changed password!</span> as HTMLElement}</Fading>
 		</form>
 	</>;
 }
