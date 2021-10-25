@@ -163,9 +163,13 @@ export default function(props: {
 	const controller: Keyboard = {
 		show: newHandler => setHandler(newHandler),
 		hide: oldHandler => {
-			if (handler() === oldHandler) {
-				setHandler(null);
-			}
+			// Prevent the keyboard being removed from then added to the DOM in cases of a
+			// blur-then-focus.
+			setTimeout(() => {
+				if (handler() === oldHandler) {
+					setHandler(null);
+				}
+			}, 0);
 		},
 		height: createMemo(() => handler() === null ? 0 : layout.length * (50 + 6)),
 	};
