@@ -11,11 +11,9 @@ import Keyboard from "./keyboard";
 import "./base.scss";
 
 export default function(): JSX.Element {
-	let keyboard!: Keyboard;
-	return <>
-		<Keyboard ref={keyboard} />
-		<MainApp keyboard={keyboard} />
-	</>;
+	let keyboardHandle!: Keyboard;
+	const keyboard = <Keyboard ref={keyboardHandle} />;
+	return <><MainApp keyboard={keyboardHandle} />{keyboard}</>;
 }
 
 function MainApp(props: { keyboard: Keyboard }): JSX.Element {
