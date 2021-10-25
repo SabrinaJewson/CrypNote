@@ -12,10 +12,10 @@ import { runTests } from "../test";
 import "./base.scss";
 
 export default function(): JSX.Element {
-	const keyboard = new Keyboard();
+	let keyboard!: Keyboard;
 	return <>
+		<Keyboard ref={keyboard} />
 		<MainApp keyboard={keyboard} />
-		<keyboard.element />
 	</>;
 }
 
@@ -37,7 +37,7 @@ function MainApp(props: { keyboard: Keyboard }): JSX.Element {
 		}
 	})();
 
-	return <div class="mainApp">
+	return <div class="mainApp" style={{ "margin-bottom": `${props.keyboard.height()}px` }}>
 		<Switch>
 			<Match when={db.disabled()}>
 				<div class="disabled">
