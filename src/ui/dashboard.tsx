@@ -253,13 +253,14 @@ function Encrypt(props: ScreenProps): JSX.Element {
 	return <>
 		<h1>Encrypt</h1>
 		<p>
-			An encrypted message will be only readable by one other person in the world - and the
-			NSA, of course. Anyone can tell who sent an encrypted message, but they can't see who is
+			An encrypted message will be only readable by one other person in the world - and
+			<a href="https://miracl.com/blog/backdoors-in-nist-elliptic-curves/"> the NSA, of
+			course</a>. Anyone can tell who sent an encrypted message, but they can't see who is
 			going to receive it.
 		</p>
 		<p>
 			<strong>Confidentiality</strong> is guaranteed: this means the contents of the messages
-			cannot be read by anyone other than the dedicated recipient. However, if
+			cannot be read by anyone other than the dedicated recipient. However, if you or
 			the recipient were to have their secrets leaked, this message would be revealed also.
 		</p>
 		<p>
@@ -315,9 +316,10 @@ function Sign(props: ScreenProps): JSX.Element {
 			Specifically, signed messages provide <strong>integrity</strong>, 
 			<strong>authenticity</strong> and <strong>non-repudiability</strong>, but <strong>not 
 			confidentiality</strong>. It is not possible for anyone to forge a message that looks
-			like it was signed by you, or to modify an existing message signed by you. If you have
-			created a signed message, it is possible for anyone to read the message and prove to
-			both themselves and anyone else that it was you who wrote it.
+			like it was signed by you, nor is it possible for anyone to modify an existing message
+			signed by you without it being obvious that it was tampered with. If you have created
+			a signed message, it is possible for anyone to read the message and prove to both
+			themselves and anyone else that it was you who wrote it.
 		</p>
 		<MessageInput
 			keylogged={false}
