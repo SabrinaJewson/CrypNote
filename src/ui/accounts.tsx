@@ -1,6 +1,6 @@
-import { Match, Show, Switch } from "solid-js";
-import { createEffect, createMemo, createResource, createSignal, on } from "solid-js";
+import { createEffect, createResource, createSignal, on } from "solid-js";
 import { JSX } from "solid-js";
+import { Show } from "solid-js";
 
 import { Bytes, BytesReader } from "../bytes";
 import { Exportable, Importable } from "./exportable";
@@ -10,7 +10,6 @@ import Keyboard from "./keyboard";
 import OrderableList from "./orderableList";
 import PasswordInput from "./passwordInput";
 import { ReactiveAccount } from ".";
-import { eq } from "../eq";
 import { exhausted } from "../index";
 
 import "./accounts.scss";
@@ -140,19 +139,7 @@ export default function(props: {
 
 			if (selected_ === SelectedPage.Import) {
 				return <ImportAccount
-					accounts={props.accounts}
-					accountBin={props.accountBin}
 					onImport={imported => {
-						const account = ReactiveAccount.new(imported);
-						props.setAccounts(accounts => [...accounts, account]);
-						setSelected(account);
-					}}
-					onReplace={(imported, i) => {
-						props.accounts[i].setLocked(imported);
-						setSelected(props.accounts[i]);
-					}}
-					onRestore={(imported, i) => {
-						props.setAccountBin(bin => [...bin.slice(0, i), ...bin.slice(i + 1)]);
 						const account = ReactiveAccount.new(imported);
 						props.setAccounts(accounts => [...accounts, account]);
 						setSelected(account);
@@ -278,13 +265,7 @@ function CreateAccount(props: {
 	</form>;
 }
 
-function ImportAccount(props: {
-	accounts: ReactiveAccount[],
-	accountBin: LockedAccount[],
-	onImport: (account: LockedAccount) => void,
-	onReplace: (account: LockedAccount, index: number) => void,
-	onRestore: (account: LockedAccount, index: number) => void,
-}): JSX.Element {
+function ImportAccount(props: { onImport: (account: LockedAccount) => void }): JSX.Element {
 	const [data, setData] = createSignal(Bytes.new());
 	const [account] = createResource(data, async data => {
 		if (data.isEmpty()) {
@@ -306,77 +287,33 @@ function ImportAccount(props: {
 		}
 	});
 
-	const enum OperationKind { Import, Replace, Restore }
-
-	const operation = createMemo(() => {
+	return <form action="javascript:void(0)" onSubmit={() => {
 		const account_ = account();
 		if (account_ instanceof LockedAccount) {
-			const accountsIndex = props.accounts.findIndex(a => eq(a.locked(), account_));
-			if (accountsIndex !== -1) {
-				return {
-					kind: OperationKind.Replace,
-					run: () => props.onReplace(account_, accountsIndex),
-				};
-			}
-
-			const binIndex = props.accountBin.findIndex(a => eq(a, account_));
-			if (binIndex !== -1) {
-				return {
-					kind: OperationKind.Restore,
-					run: () => props.onRestore(account_, binIndex),
-				};
-			}
-
-			return { kind: OperationKind.Import, run: () => props.onImport(account_) };
+			props.onImport(account_);
 		}
-	});
-
-	return <form action="javascript:void(0)" onSubmit={() => operation()?.run()}>
+	}}>
 		<h1>Import an account</h1>
 		<p>Enter the exported account data below.</p>
 		<Importable rows={25} setData={setData} />
 		{() => {
 			const account_ = account();
-
 			if (account_ === undefined) {
 				return;
 			}
-
 			if (account_ instanceof LockedAccount) {
 				return <>
 					<p>Account name: {account_.publicData.name}</p>
 					<p>Public key: <code>{account_.publicData.dsaPublicKey.toString()}</code></p>
-					<Switch>
-						<Match when={operation()?.kind === OperationKind.Import}>
-							<button>Import new account</button>
-						</Match>
-						<Match when={operation()?.kind === OperationKind.Replace}>
-							<p>
-								You already have this account imported. You may replace the stored
-								one with this version.
-							</p>
-							<button>Replace existing account</button>
-						</Match>
-						<Match when={operation()?.kind === OperationKind.Restore}>
-							<p>
-								You have this account in your account bin. You may restore the
-								account and replace it with this version. Alternatively, if you
-								enter your account bin you can restore it but not replace it.
-							</p>
-							<button>Restore and replace</button>
-						</Match>
-					</Switch>
+					<button>Import new account</button>
 				</>;
 			}
-
 			if (account_ instanceof InvalidFormatError) {
 				return <p>Data is in an invalid format.</p>;
 			}
-
 			if (account_ instanceof OutdatedError) {
 				return <p>Your client is oudated; please upgrade.</p>;
 			}
-
 			exhausted(account_);
 		}}
 	</form>;
