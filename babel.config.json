@@ -10,7 +10,8 @@
 			"@babel/preset-typescript",
 			{
 				"jsxPragma": "JSX",
-				"allowNamespaces": true
+				"allowNamespaces": true,
+				"optimizeConstEnums": true
 			}
 		],
 		"babel-preset-solid"
