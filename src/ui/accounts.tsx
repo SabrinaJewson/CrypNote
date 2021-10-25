@@ -246,13 +246,19 @@ function CreateAccount(props: {
 }): JSX.Element {
 	const [error, setError] = createSignal("");
 	const [password, setPassword] = createSignal("");
-	createEffect(on(password, () => setError("")));
+	const [confirmPassword, setConfirmPassword] = createSignal("");
+	createEffect(on([password, confirmPassword], () => setError("")));
 
+	let confirmPasswordInput!: PasswordInput;
 	let createAccountButton!: HTMLButtonElement;
 
 	return <form action="javascript:void(0)" onSubmit={e => {
 		if (password() === "") {
 			setError("Enter a password");
+			return;
+		}
+		if (password() !== confirmPassword()) {
+			setError("Passwords do not match");
 			return;
 		}
 
@@ -271,7 +277,17 @@ function CreateAccount(props: {
 			keylogged={props.keylogged}
 			scraped={props.scraped}
 			keyboard={props.keyboard}
+			onTab={() => confirmPasswordInput.focus() || createAccountButton.focus()}
+		/></p>
+		<p><PasswordInput
+			label="Confirm password: "
+			value={confirmPassword()}
+			setValue={setConfirmPassword}
+			keylogged={props.keylogged}
+			scraped={props.scraped}
+			keyboard={props.keyboard}
 			onTab={() => createAccountButton.focus()}
+			ref={confirmPasswordInput}
 		/></p>
 		<button ref={createAccountButton}>Create account</button>
 		<Show when={error() !== ""}>
