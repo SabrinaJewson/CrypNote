@@ -37,6 +37,10 @@ module.exports = {
 		new HtmlWebpackPlugin({ inject: "body" }),
 		new HtmlInlineScriptPlugin(),
 	],
+	optimization: {
+		mangleExports: "size",
+		moduleIds: "size",
+	},
 	watchOptions: {
 		ignored: /node_modules|dist/,
 	},
