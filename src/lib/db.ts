@@ -12,6 +12,7 @@ export interface Db {
 	accountBin: LockedAccount[],
 	keylogged: boolean,
 	scraped: boolean,
+	keyHeight: number,
 }
 
 const [disabled, setDisabled] = createSignal(false);
@@ -74,6 +75,7 @@ export function createDefault(): Db {
 		accountBin: [],
 		keylogged: true,
 		scraped: true,
+		keyHeight: 50,
 	};
 }
 
@@ -91,6 +93,8 @@ function write(writer: BytesMut, db: Db): void {
 	}
 
 	writeUint8(writer, Number(db.keylogged) << 1 | Number(db.scraped) << 0);
+
+	writeUint8(writer, Math.max(Math.min(db.keyHeight, 255), 0));
 }
 
 async function read(reader: BytesReader): Promise<Db> {
@@ -111,7 +115,10 @@ async function read(reader: BytesReader): Promise<Db> {
 			const nextByte = readUint8(reader);
 			const keylogged = (nextByte & 2) !== 0;
 			const scraped = (nextByte & 1) !== 0;
-			return { accounts, accountBin, keylogged, scraped };
+
+			const keyHeight = readUint8(reader);
+
+			return { accounts, accountBin, keylogged, scraped, keyHeight };
 		}
 		default: throw new OutdatedError();
 	}

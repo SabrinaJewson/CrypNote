@@ -12,12 +12,6 @@ import Settings from "./settings";
 import "./base.scss";
 
 export default function(): JSX.Element {
-	let keyboardHandle!: Keyboard;
-	const keyboard = <Keyboard ref={keyboardHandle} />;
-	return <><MainApp keyboard={keyboardHandle} />{keyboard}</>;
-}
-
-function MainApp(props: { keyboard: Keyboard }): JSX.Element {
 	const [loaded, setLoaded] = createSignal<null | db.LoadError | Db>(null);
 
 	void (async () => {
@@ -35,7 +29,7 @@ function MainApp(props: { keyboard: Keyboard }): JSX.Element {
 		}
 	})();
 
-	return <div class="mainApp" style={{ "margin-bottom": `${props.keyboard.height()}px` }}>
+	return <>
 		<Switch>
 			<Match when={db.disabled()}>
 				<div class="disabled">
@@ -75,10 +69,10 @@ function MainApp(props: { keyboard: Keyboard }): JSX.Element {
 				</>
 			}}</Match>
 			<Match when={true}>
-				<LoadedApp initialDb={loaded() as Db} keyboard={props.keyboard} />
+				<LoadedApp initialDb={loaded() as Db} />
 			</Match>
 		</Switch>
-	</div>;
+	</>;
 }
 
 export class ReactiveAccount {
@@ -97,13 +91,25 @@ export class ReactiveAccount {
 	}
 }
 
-function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
+function LoadedApp(props: { initialDb: Db }): JSX.Element {
 	const [accounts, setAccounts] = createSignal(props.initialDb.accounts.map(ReactiveAccount.new));
 	const [accountBin, setAccountBin] = createSignal(props.initialDb.accountBin);
 
 	const [keylogged, setKeylogged] = createSignal(props.initialDb.keylogged);
 	const [scraped, setScraped] = createSignal(props.initialDb.scraped);
-	const settings: Settings = { keylogged, setKeylogged, scraped, setScraped };
+	const [keyHeight, setKeyHeight] = createSignal(props.initialDb.keyHeight);
+	const settings: Settings = {
+		keylogged,
+		setKeylogged,
+		scraped,
+		setScraped,
+		keyHeight,
+		setKeyHeight,
+	};
+
+	let keyboard!: Keyboard;
+	const keyboardElement = <Keyboard keyHeight={keyHeight()} ref={keyboard} />;
+	createEffect(() => document.body.style.marginBottom = `${keyboard.height()}px`);
 
 	createEffect(() => {
 		db.store({
@@ -111,6 +117,7 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 			accountBin: accountBin(),
 			keylogged: keylogged(),
 			scraped: scraped(),
+			keyHeight: keyHeight(),
 		});
 	});
 
@@ -132,7 +139,7 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 					account={currentAccount()![1]}
 					setAccount={currentAccount()![2]}
 					logOut={() => setCurrentAccount(null)}
-					keyboard={props.keyboard}
+					keyboard={keyboard}
 					settings={settings}
 				/>
 			</Match>
@@ -146,11 +153,12 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 						const [unlockedAccount, setUnlockedAccount] = createStore(unlocked);
 						setCurrentAccount([account, unlockedAccount, setUnlockedAccount]);
 					}}
-					keyboard={props.keyboard}
+					keyboard={keyboard}
 					settings={settings}
 				/>
 			</Match>
 		</Switch>
+		{keyboardElement}
 	</>;
 }
 
