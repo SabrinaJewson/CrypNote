@@ -44,6 +44,7 @@ export default function(props: {
 					} while (!(form instanceof HTMLFormElement) && form !== null);
 					form?.requestSubmit();
 				}}
+				onTab={props.onTab}
 			/>;
 
 			if (canvas instanceof HTMLCanvasElement) {
