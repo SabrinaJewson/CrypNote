@@ -32,8 +32,6 @@ export default function(props: {
 	const enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile }
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
-	// TODO: remove
-	setScreen(Screen.UserProfile);
 
 	const outerProps = props;
 
