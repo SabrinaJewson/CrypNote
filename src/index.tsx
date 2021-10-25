@@ -2,6 +2,8 @@ import { render } from "solid-js/web";
 
 import App from "./ui";
 
+import "./polyfills";
+
 render(App, document.getElementById("app")!);
 
 export function exhausted(_: never): void {
