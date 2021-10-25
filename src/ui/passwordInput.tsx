@@ -31,11 +31,7 @@ export default function(props: {
 					do {
 						form = form.parentElement;
 					} while (!(form instanceof HTMLFormElement) && form !== null);
-
-					if (form !== null && form.reportValidity()) {
-						form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-						form.submit();
-					}
+					form?.requestSubmit();
 				}}
 			/>;
 

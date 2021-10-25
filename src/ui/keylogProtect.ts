@@ -32,10 +32,17 @@ export function keylogProtect(
 			}
 		},
 		onInput: input => {
-			const [start, end] = [element.selectionStart, element.selectionEnd];
-			setContent(content => content.slice(0, start) + input + content.slice(end));
-			element.selectionStart = start + input.length;
-			element.selectionEnd = start + input.length;
+			if (input === "\n" && element instanceof HTMLInputElement) {
+				element.form?.requestSubmit();
+			} else {
+				if (element instanceof HTMLInputElement) {
+					input = input.replaceAll("\n", "");
+				}
+				const [start, end] = [element.selectionStart, element.selectionEnd];
+				setContent(content => content.slice(0, start) + input + content.slice(end));
+				element.selectionStart = start + input.length;
+				element.selectionEnd = start + input.length;
+			}
 		},
 	};
 
