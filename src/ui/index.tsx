@@ -7,6 +7,7 @@ import { Db, LockedAccount, UnlockedAccount, db } from "../lib";
 import Accounts from "./accounts";
 import Dashboard from "./dashboard";
 import Keyboard from "./keyboard";
+import Settings from "./settings";
 
 import "./base.scss";
 
@@ -99,8 +100,10 @@ export class ReactiveAccount {
 function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 	const [accounts, setAccounts] = createSignal(props.initialDb.accounts.map(ReactiveAccount.new));
 	const [accountBin, setAccountBin] = createSignal(props.initialDb.accountBin);
+
 	const [keylogged, setKeylogged] = createSignal(props.initialDb.keylogged);
 	const [scraped, setScraped] = createSignal(props.initialDb.scraped);
+	const settings: Settings = { keylogged, setKeylogged, scraped, setScraped };
 
 	createEffect(() => {
 		db.store({
@@ -128,10 +131,9 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 				<Dashboard
 					account={currentAccount()![1]}
 					setAccount={currentAccount()![2]}
-					keylogged={keylogged()}
-					scraped={scraped()}
 					logOut={() => setCurrentAccount(null)}
 					keyboard={props.keyboard}
+					settings={settings}
 				/>
 			</Match>
 			<Match when={currentAccount() === null}>
@@ -144,11 +146,8 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 						const [unlockedAccount, setUnlockedAccount] = createStore(unlocked);
 						setCurrentAccount([account, unlockedAccount, setUnlockedAccount]);
 					}}
-					keylogged={keylogged()}
-					scraped={scraped()}
-					setKeylogged={setKeylogged}
-					setScraped={setScraped}
 					keyboard={props.keyboard}
+					settings={settings}
 				/>
 			</Match>
 		</Switch>

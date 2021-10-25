@@ -10,8 +10,8 @@ import Keyboard from "./keyboard";
 import OrderableList from "./orderableList";
 import PasswordInput from "./passwordInput";
 import { ReactiveAccount } from ".";
+import Settings from "./settings";
 import { exhausted } from "../index";
-import { runTests } from "../test";
 
 import "./accounts.scss";
 
@@ -21,10 +21,7 @@ export default function(props: {
 	accountBin: LockedAccount[],
 	setAccountBin: (updater: (old: LockedAccount[]) => LockedAccount[]) => void,
 	onLogin: (account: ReactiveAccount, unlocked: UnlockedAccount) => void,
-	keylogged: boolean,
-	scraped: boolean,
-	setKeylogged: (v: boolean) => void,
-	setScraped: (v: boolean) => void,
+	settings: Settings,
 	keyboard: Keyboard,
 }): JSX.Element {
 	const enum SelectedPage { Create, Import, Settings }
@@ -97,8 +94,8 @@ export default function(props: {
 						props.setAccounts(accounts => arrayRemove(accounts, selected_));
 						props.setAccountBin(bin => [...bin, selected_.locked()]);
 					}}
-					keylogged={props.keylogged}
-					scraped={props.scraped}
+					keylogged={props.settings.keylogged()}
+					scraped={props.settings.scraped()}
 					keyboard={props.keyboard}
 				/>;
 			}
@@ -132,8 +129,8 @@ export default function(props: {
 						props.setAccounts(accounts => [...accounts, account]);
 						setSelected(account);
 					}}
-					keylogged={props.keylogged}
-					scraped={props.scraped}
+					keylogged={props.settings.keylogged()}
+					scraped={props.settings.scraped()}
 					keyboard={props.keyboard}
 				/>
 			}
@@ -149,12 +146,7 @@ export default function(props: {
 			}
 
 			if (selected_ === SelectedPage.Settings) {
-				return <Settings
-					keylogged={props.keylogged}
-					scraped={props.scraped}
-					setKeylogged={props.setKeylogged}
-					setScraped={props.setScraped}
-				/>;
+				return <Settings settings={props.settings} />
 			}
 
 			if (selected_ === null) {
@@ -348,36 +340,6 @@ function ImportAccount(props: { onImport: (account: LockedAccount) => void }): J
 			exhausted(account_);
 		}}
 	</form>;
-}
-
-function Settings(props: {
-	keylogged: boolean,
-	scraped: boolean,
-	setKeylogged: (v: boolean) => void,
-	setScraped: (v: boolean) => void,
-}): JSX.Element {
-	return <>
-		<h1>Settings</h1>
-		<p><label>
-			Enable keylogger protection:
-			<input
-				type="checkbox"
-				checked={props.keylogged}
-				onInput={e => props.setKeylogged((e.target as HTMLInputElement).checked)}
-			/>
-		</label></p>
-		<p><label>
-			Enable scraper protection:
-			<input
-				type="checkbox"
-				checked={props.scraped}
-				onInput={e => props.setScraped((e.target as HTMLInputElement).checked)}
-			/>
-		</label></p>
-		<Show when={process.env.NODE_ENV !== "production"}>
-			<button type="button" onClick={() => void runTests()}>Run tests</button>
-		</Show>
-	</>;
 }
 
 function arrayRemove<T>(array: readonly T[], remove: T): T[] {
