@@ -2,6 +2,7 @@
 	"name": "CrypNote",
 	"version": "0.0.0",
 	"private": true,
+	"license": "GPL-3.0-or-later",
 	"scripts": {
 		"check": "tsc -p tsconfig.json; eslint_d --ext .tsx,.ts .",
 		"build": "webpack --config webpack.config.js --node-env development",
