@@ -27,6 +27,7 @@ export default function(props: {
 	fontFamily?: string,
 	discify?: boolean,
 	keyboard?: Keyboard,
+	onTab?: () => void,
 } & WrappingProps): HTMLCanvasElement | JSX.Element {
 	const [selected, setSelected] = createSignal({ start: 0, end: 0 });
 
@@ -444,6 +445,9 @@ export default function(props: {
 			onInput: input => {
 				if (!props.textWrap && input === "\n") {
 					props.onSubmit?.();
+				} else if (input === "\t" && props.onTab !== undefined) {
+					canvas.blur();
+					props.onTab();
 				} else {
 					insert(input);
 				}

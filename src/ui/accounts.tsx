@@ -179,6 +179,8 @@ function Account(props: {
 	const [password, setPassword] = createSignal("");
 	createEffect(on(password, () => setError("")));
 
+	let logInButton!: HTMLButtonElement;
+
 	return <>
 		<form action="javascript:void(0)" onSubmit={() => {
 			if (password() === "") {
@@ -214,8 +216,9 @@ function Account(props: {
 				keylogged={props.keylogged}
 				scraped={props.scraped}
 				keyboard={props.keyboard}
+				onTab={() => logInButton.focus()}
 			/></p>
-			<button disabled={loggingIn()}>Log in</button>
+			<button disabled={loggingIn()} ref={logInButton}>Log in</button>
 			<Show when={error() !== ""}>
 				<span class="error" onClick={() => setError("")}>{" " + error()}</span>
 			</Show>
@@ -245,6 +248,8 @@ function CreateAccount(props: {
 	const [password, setPassword] = createSignal("");
 	createEffect(on(password, () => setError("")));
 
+	let createAccountButton!: HTMLButtonElement;
+
 	return <form action="javascript:void(0)" onSubmit={e => {
 		if (password() === "") {
 			setError("Enter a password");
@@ -266,8 +271,9 @@ function CreateAccount(props: {
 			keylogged={props.keylogged}
 			scraped={props.scraped}
 			keyboard={props.keyboard}
+			onTab={() => createAccountButton.focus()}
 		/></p>
-		<button>Create account</button>
+		<button ref={createAccountButton}>Create account</button>
 		<Show when={error() !== ""}>
 			<span class="error" onClick={() => setError("")}>{" " + error()}</span>
 		</Show>

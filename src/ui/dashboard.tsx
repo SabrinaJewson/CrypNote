@@ -394,6 +394,9 @@ function UserProfile(props: ScreenProps): JSX.Element {
 
 	const changedPassword = new FadingState();
 
+	let confirmPasswordInput!: PasswordInput;
+	let changePasswordButton!: HTMLButtonElement;
+
 	return <>
 		<h1>User Profile</h1>
 		<label>Name: <input
@@ -431,6 +434,7 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				keylogged={props.keylogged}
 				scraped={props.scraped}
 				keyboard={props.keyboard}
+				onTab={() => confirmPasswordInput.focus() || changePasswordButton.focus()}
 			/></p>
 			<p><PasswordInput
 				label="Confirm password: "
@@ -439,8 +443,10 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				keylogged={props.keylogged}
 				scraped={props.scraped}
 				keyboard={props.keyboard}
+				onTab={() => changePasswordButton.focus()}
+				ref={confirmPasswordInput}
 			/></p>
-			<button>Change password</button>
+			<button ref={changePasswordButton}>Change password</button>
 			<Show when={error() !== ""}>
 				<span class="error" onClick={() => setError("")}>{" " + error()}</span>
 			</Show>
