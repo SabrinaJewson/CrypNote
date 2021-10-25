@@ -23,7 +23,7 @@ export default function(props: {
 				content={props.value}
 				setContent={props.setValue}
 				padding={[1, 2]}
-				discify={true}
+				discify
 				fontFamily="Arial"
 				keyboard={props.keylogged ? props.keyboard : undefined}
 				onSubmit={() => {

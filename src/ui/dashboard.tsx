@@ -124,7 +124,10 @@ function Decode(props: ScreenProps): JSX.Element {
 				return <p>This message's format is invalid.</p>;
 			}
 			if (decoded_ instanceof OutdatedError) {
-				return <p>Your client is outdated; please upgrade.</p>;
+				return <p>
+					This message appears to have been written with a newer version of CrypNote than
+					this one. You should try updating to the latest version.
+				</p>;
 			}
 			if (decoded_ instanceof NotForYouError) {
 				return <p>You are not the intended recipient of this message.</p>;

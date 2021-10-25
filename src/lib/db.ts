@@ -57,7 +57,9 @@ export class LoadError {
 
 	topMessage(): string {
 		if (this.cause instanceof OutdatedError) {
-			return "Your client is outdated; please upgrade.";
+			return "The stored data could not be loaded because it appears to have been saved "
+				+ "with a newer version of CrypNote than this one. You should try updating to the "
+				+ "latest version.";
 		} else if (this.cause instanceof InvalidFormatError) {
 			return "Stored data is not in a valid format. It may have been tampered with, or this may be a bug in the program.";
 		} else {
