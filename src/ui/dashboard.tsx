@@ -14,6 +14,7 @@ import { Bytes } from "../bytes";
 import Keyboard from "./keyboard";
 import OrderableList from "./orderableList";
 import PasswordInput from "./passwordInput";
+import Settings from "./settings";
 import { eq } from "../eq";
 import { exhausted } from "../index";
 import { keylogProtect } from "./keylogProtect";
@@ -24,12 +25,11 @@ import "./dashboard.scss";
 export default function(props: {
 	account: Store<UnlockedAccount>,
 	setAccount: SetStoreFunction<UnlockedAccount>,
-	keylogged: boolean,
-	scraped: boolean,
 	logOut: () => void,
 	keyboard: Keyboard,
+	settings: Settings,
 }): JSX.Element {
-	const enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile }
+	const enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile, Settings }
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 
@@ -53,9 +53,8 @@ export default function(props: {
 				component={props.inner}
 				account={outerProps.account}
 				setAccount={outerProps.setAccount}
-				keylogged={outerProps.keylogged}
-				scraped={outerProps.scraped}
 				keyboard={outerProps.keyboard}
+				settings={outerProps.settings}
 			/>
 		</div>;
 	};
@@ -67,6 +66,7 @@ export default function(props: {
 			<ScreenButton variant={Screen.Sign}>Sign</ScreenButton>
 			<ScreenButton variant={Screen.Contacts}>Contacts</ScreenButton>
 			<ScreenButton variant={Screen.UserProfile}>User Profile</ScreenButton>
+			<ScreenButton variant={Screen.Settings}>Settings</ScreenButton>
 			<div onClick={props.logOut}>Log Out</div>
 		</div>
 		<ScreenPanel variant={Screen.Decode} inner={Decode} />
@@ -74,15 +74,15 @@ export default function(props: {
 		<ScreenPanel variant={Screen.Sign} inner={Sign} />
 		<ScreenPanel variant={Screen.Contacts} inner={Contacts} />
 		<ScreenPanel variant={Screen.UserProfile} inner={UserProfile} />
+		<ScreenPanel variant={Screen.Settings} inner={Settings} />
 	</div>;
 }
 
 interface ScreenProps {
-	keylogged: boolean,
-	scraped: boolean,
 	account: Store<UnlockedAccount>,
 	setAccount: SetStoreFunction<UnlockedAccount>,
 	keyboard: Keyboard,
+	settings: Settings,
 }
 
 const empty: unique symbol = Symbol();
@@ -140,7 +140,7 @@ function Decode(props: ScreenProps): JSX.Element {
 			if (decoded_.kind === DecodedKind.SentMessage) {
 				return <>
 					<p>You sent this message to {decoded_.receiver.nickname}.</p>
-					<DisplayMessage message={decoded_.message} scraped={props.scraped} />
+					<DisplayMessage message={decoded_.message} scraped={props.settings.scraped()} />
 				</>;
 			}
 			if (decoded_.kind === DecodedKind.ReceivedMessage) {
@@ -157,7 +157,7 @@ function Decode(props: ScreenProps): JSX.Element {
 							You cannot read this message because you are not its intended recipient,
 							or the message was modified in transit.
 						</p>
-						: <DisplayMessage message={decoded_.message} scraped={props.scraped} />
+						: <DisplayMessage message={decoded_.message} scraped={props.settings.scraped()} />
 					}
 				</>;
 			}
@@ -302,8 +302,8 @@ function Encrypt(props: ScreenProps): JSX.Element {
 			}}</For>
 		</select></label></p>
 		<MessageInput
-			keylogged={props.keylogged}
-			scraped={props.scraped}
+			keylogged={props.settings.keylogged()}
+			scraped={props.settings.scraped()}
 			message={message}
 			setMessage={setMessage}
 			keyboard={props.keyboard}
@@ -431,8 +431,8 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				label="New password: "
 				value={newPassword()}
 				setValue={setNewPassword}
-				keylogged={props.keylogged}
-				scraped={props.scraped}
+				keylogged={props.settings.keylogged()}
+				scraped={props.settings.scraped()}
 				keyboard={props.keyboard}
 				onTab={() => confirmPasswordInput.focus() || changePasswordButton.focus()}
 			/></p>
@@ -440,8 +440,8 @@ function UserProfile(props: ScreenProps): JSX.Element {
 				label="Confirm password: "
 				value={confirmPassword()}
 				setValue={setConfirmPassword}
-				keylogged={props.keylogged}
-				scraped={props.scraped}
+				keylogged={props.settings.keylogged()}
+				scraped={props.settings.scraped()}
 				keyboard={props.keyboard}
 				onTab={() => changePasswordButton.focus()}
 				ref={confirmPasswordInput}
