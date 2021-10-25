@@ -54,6 +54,8 @@
 
 			* {
 				user-select: text;
+				-moz-user-select: text;
+				-webkit-user-select: text;
 			}
 
 			label {
@@ -118,8 +120,4 @@ div.messageInput {
 		font-size: 13px;
 		line-height: 1.2;
 	}
-}
-
-.syntheticTextBox:focus {
-	outline: none;
 }
