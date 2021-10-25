@@ -3,6 +3,8 @@
 
 	background-color: #AAA;
 
+	touch-action: none;
+
 	> div {
 		display: flex;
 		flex-flow: row nowrap;
