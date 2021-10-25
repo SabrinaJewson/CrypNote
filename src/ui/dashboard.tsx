@@ -29,7 +29,7 @@ export default function(props: {
 	logOut: () => void,
 	keyboard: Keyboard,
 }): JSX.Element {
-	enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile }
+	const enum Screen { Decode, Encrypt, Sign, Contacts, UserProfile }
 
 	const [screen, setScreen] = createSignal(Screen.Decode);
 	// TODO: remove

@@ -4,7 +4,7 @@ import { Show } from "solid-js";
 
 import "./fading.scss";
 
-enum FadingStage { Initial, Shown, Fading }
+const enum FadingStage { Initial, Shown, Fading }
 type FadingStateInner = never
 	| { stage: FadingStage.Initial }
 	| { stage: FadingStage.Shown, timer: number }
