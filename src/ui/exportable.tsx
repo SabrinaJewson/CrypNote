@@ -14,7 +14,7 @@ export function Exportable(props: { data: Bytes }): JSX.Element {
 
 	return <div class="exportable">
 		{() => overThreshold()
-			? <textarea value={data()} readonly rows={6} />
+			? <textarea value={data()} readonly rows={6} spellcheck={false} />
 			: <pre>{data()}</pre>
 		}
 		<button type="button" onClick={() => {
@@ -49,6 +49,7 @@ export function Importable(props: { rows: number, setData: (data: Bytes) => void
 			value={encoded()}
 			classList={{ invalid: invalid() }}
 			onInput={e => setEncoded((e.target as HTMLTextAreaElement).value)}
+			spellcheck={false}
 		/>
 		<div><button type="button" onClick={() => setEncoded("")}>Clear</button></div>
 	</div>;
