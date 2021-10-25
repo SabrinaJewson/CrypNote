@@ -80,6 +80,10 @@ export default function(props: {
 						</div> as HTMLElement;
 					}}</OrderableList>
 				</div>
+				<button type="button" class="warn" onClick={() => {
+					props.setAccountBin(() => []);
+					setSelected(null);
+				}}>Permanently delete all</button>
 			</Show>
 		</div>
 		<div class="content">{() => {
