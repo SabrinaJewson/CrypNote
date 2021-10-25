@@ -1,4 +1,4 @@
-import { createEffect } from "solid-js";
+import { createEffect, untrack } from "solid-js";
 
 import Keyboard, { KeyboardHandler } from "./keyboard";
 
@@ -7,13 +7,14 @@ interface Data {
 	setContent: (v: string | ((old: string) => string)) => void,
 	keyboard: () => Keyboard,
 	enable: () => boolean,
+	onTab?: () => void,
 }
 
 export function keylogProtect(
 	element: HTMLElement & { value: string, selectionStart: number, selectionEnd: number },
 	data: () => Data,
 ): void {
-	const { content, setContent, keyboard, enable } = data();
+	const { content, setContent, keyboard, enable, onTab } = untrack(data);
 
 	const handler: KeyboardHandler = {
 		onBackspace: () => {
@@ -32,10 +33,15 @@ export function keylogProtect(
 			}
 		},
 		onInput: input => {
-			if (input === "\n" && element instanceof HTMLInputElement) {
+			const singleLine = element instanceof HTMLInputElement;
+
+			if (input === "\n" && singleLine) {
 				element.form?.requestSubmit();
+			} else if (input === "\t" && onTab !== undefined) {
+				element.blur();
+				onTab();
 			} else {
-				if (element instanceof HTMLInputElement) {
+				if (singleLine) {
 					input = input.replaceAll("\n", "");
 				}
 				const [start, end] = [element.selectionStart, element.selectionEnd];

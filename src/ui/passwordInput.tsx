@@ -6,6 +6,10 @@ false && keylogProtect; // Required to prevent dead-code elimination removing th
 import Keyboard from "./keyboard";
 import SyntheticTextBox from "./syntheticTextBox";
 
+export default interface PasswordInput {
+	readonly focus: () => boolean,
+}
+
 export default function(props: {
 	label?: string,
 	value: string,
@@ -13,10 +17,17 @@ export default function(props: {
 	keylogged: boolean,
 	scraped: boolean,
 	keyboard: Keyboard,
+	onTab: () => void,
+	ref?: PasswordInput | ((controller: PasswordInput) => void),
 }): JSX.Element {
-	const memo = createMemo<{ el: JSX.Element, scrolled: HTMLElement }>(old => {
+	const memo = createMemo<{
+		el: JSX.Element,
+		scrolled: HTMLElement,
+		focusable: HTMLElement | undefined,
+	}>(old => {
 		let el: JSX.Element;
 		let scrolled: HTMLElement;
+		let focusable: HTMLElement | undefined;
 
 		if (props.scraped) {
 			const canvas = <SyntheticTextBox
@@ -34,6 +45,10 @@ export default function(props: {
 					form?.requestSubmit();
 				}}
 			/>;
+
+			if (canvas instanceof HTMLCanvasElement) {
+				focusable = canvas;
+			}
 
 			scrolled = <span class="passwordInputBox">{canvas}</span> as HTMLSpanElement;
 
@@ -62,8 +77,10 @@ export default function(props: {
 					setContent: props.setValue,
 					keyboard: () => props.keyboard,
 					enable: () => props.keylogged,
+					onTab: props.onTab,
 				}}
 			/> as HTMLInputElement;
+			focusable = scrolled;
 
 			el = createMemo(() => {
 				if (props.label === undefined) {
@@ -78,7 +95,23 @@ export default function(props: {
 			onMount(() => scrolled.scrollLeft = old.scrolled.scrollLeft);
 		}
 
-		return { el, scrolled };
+		return { el, scrolled, focusable };
 	});
+
+	const controller = {
+		focus: () => {
+			const focusable = memo().focusable;
+			if (focusable === undefined) {
+				return false;
+			} else {
+				focusable.focus();
+				return true;
+			}
+		},
+	};
+	if (typeof props.ref === "function") {
+		props.ref(controller);
+	}
+
 	return () => memo().el;
 }
