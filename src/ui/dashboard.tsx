@@ -4,7 +4,7 @@ import { createEffect, createMemo, createResource, createSignal, on, onMount } f
 import { Dynamic } from "solid-js/web";
 import { JSX } from "solid-js";
 
-import { DecodedKind, Message, MessageKind, NotForYouError, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
+import { DecodedKind, Message, MessageKind, contactCard, decode, encryptMessage, signMessage } from "../lib/encoded";
 import { Exportable, Importable } from "./exportable";
 import { Fading, FadingState } from "./fading";
 import { InvalidFormatError, OutdatedError } from "../serde";
@@ -87,23 +87,27 @@ interface ScreenProps {
 	keyboard: Keyboard,
 }
 
+const empty: unique symbol = Symbol();
 function Decode(props: ScreenProps): JSX.Element {
 	const [encoded, setEncoded] = createSignal(Bytes.new());
 
-	const [decoded] = createResource(encoded, async encoded => {
-		if (encoded.isEmpty()) {
-			return null;
-		}
-		try {
-			return await decode(props.account, encoded);
-		} catch (e) {
-			if (e instanceof InvalidFormatError || e instanceof OutdatedError || e instanceof NotForYouError) {
-				return e;
-			} else {
-				throw e;
+	const [decoded] = createResource(
+		() => encoded().isEmpty() ? empty : decode(props.account, encoded()),
+		async promise => {
+			if (promise === empty) {
+				return empty;
 			}
-		}
-	});
+			try {
+				return await promise;
+			} catch (e) {
+				if (e instanceof InvalidFormatError || e instanceof OutdatedError) {
+					return e;
+				} else {
+					throw e;
+				}
+			}
+		},
+	);
 
 	return <>
 		<h1>Decode</h1>
@@ -114,7 +118,7 @@ function Decode(props: ScreenProps): JSX.Element {
 		<Importable rows={6} setData={setEncoded} />
 		{() => {
 			const decoded_ = decoded();
-			if (decoded_ === null) {
+			if (decoded_ === empty) {
 				return <></>;
 			}
 			if (decoded_ === undefined) {
@@ -129,14 +133,23 @@ function Decode(props: ScreenProps): JSX.Element {
 					this one. You should try updating to the latest version.
 				</p>;
 			}
-			if (decoded_ instanceof NotForYouError) {
-				return <p>You are not the intended recipient of this message.</p>;
+			if (decoded_.kind === DecodedKind.SentToUnknown) {
+				return <>
+					You sent this message to a recipient who is no longer in your contacts. If you
+					re-add them to your contacts you will be able to read this message's contents.
+				</>;
 			}
-			if (decoded_.kind === DecodedKind.Message) {
+			if (decoded_.kind === DecodedKind.SentMessage) {
+				return <>
+					<p>You sent this message to {decoded_.receiver.nickname}.</p>
+					<DisplayMessage message={decoded_.message} scraped={props.scraped} />
+				</>;
+			}
+			if (decoded_.kind === DecodedKind.ReceivedMessage) {
 				return <>
 					<DisplaySharedContact
 						contact={decoded_.sender}
-						you={"Sent by you."}
+						you={"You sent this message to yourself, and only you can read it."}
 						other={name => `Sender: ${name}`}
 						unknown={"Sent by an unknown contact."}
 						{...props}
