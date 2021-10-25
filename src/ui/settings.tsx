@@ -1,6 +1,8 @@
 import { JSX } from "solid-js";
 import { Show } from "solid-js";
+import { onMount } from "solid-js";
 
+import Keyboard, { MIN_KEY_HEIGHT } from "./keyboard";
 import { runTests } from "../test";
 
 export default interface Settings {
@@ -8,9 +10,19 @@ export default interface Settings {
 	readonly setKeylogged: (v: boolean | ((old: boolean) => boolean)) => void,
 	readonly scraped: () => boolean,
 	readonly setScraped: (v: boolean | ((old: boolean) => boolean)) => void,
+	readonly keyHeight: () => number,
+	readonly setKeyHeight: (v: number | ((old: number) => number)) => void,
 }
 
 export default function(props: { settings: Settings }): JSX.Element {
+	let sampleKeyboard!: Keyboard;
+	onMount(() => {
+		sampleKeyboard.show({
+			onInput: () => undefined,
+			onBackspace: () => undefined,
+		});
+	});
+
 	return <>
 		<h1>Settings</h1>
 		<p>These settings are applied globally and independent of which account you use.</p>
@@ -43,6 +55,18 @@ export default function(props: { settings: Settings }): JSX.Element {
 			of natively. This makes it extremely difficult for any third-party Javascript running on
 			this page (such as through a tracking browser extension) to decipher what is written.
 		</p>
+
+		<p><label>
+			Key height on the virtual keyboard:{" "}
+			<input
+				type="number"
+				min={MIN_KEY_HEIGHT}
+				value={props.settings.keyHeight()}
+				onInput={e => props.settings.setKeyHeight(parseInt((e.target as HTMLInputElement).value))}
+			/>
+		</label></p>
+		<p>Sample keyboard:</p>
+		<Keyboard keyHeight={props.settings.keyHeight()} ref={sampleKeyboard} />
 
 		<Show when={process.env.NODE_ENV !== "production"}>
 			<button type="button" onClick={() => void runTests()}>Run tests</button>

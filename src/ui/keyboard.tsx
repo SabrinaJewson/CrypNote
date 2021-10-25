@@ -155,9 +155,19 @@ export default interface Keyboard {
 	readonly height: () => number,
 }
 
+export const MIN_KEY_HEIGHT = 25;
+
 export default function(props: {
+	keyHeight: number,
 	ref: Keyboard | ((keyboard: Keyboard) => void),
 }): JSX.Element {
+	const keyHeight = createMemo(() => {
+		if (!Number.isFinite(props.keyHeight)) {
+			return MIN_KEY_HEIGHT;
+		}
+		return Math.max(props.keyHeight, MIN_KEY_HEIGHT);
+	});
+
 	const [handler, setHandler] = createSignal<KeyboardHandler | null>(null);
 
 	const controller: Keyboard = {
@@ -171,7 +181,7 @@ export default function(props: {
 				}
 			}, 0);
 		},
-		height: createMemo(() => handler() === null ? 0 : layout.length * (50 + 6)),
+		height: createMemo(() => handler() === null ? 0 : layout.length * (keyHeight() + 6)),
 	};
 	if (typeof props.ref === "function") {
 		props.ref(controller);
@@ -287,6 +297,7 @@ export default function(props: {
 					onClick={onClick}
 					onDblClick={onDblClick}
 					classList={{ held: held() }}
+					style={`height:${keyHeight()}px;line-height:${keyHeight()}px`}
 				>
 					{state().display}
 				</div>
