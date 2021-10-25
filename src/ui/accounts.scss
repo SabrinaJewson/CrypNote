@@ -15,10 +15,11 @@
 			}
 
 			> .account {
-				padding: 20px;
+				padding: 15px;
 				background-color: white;
 				display: flex;
 				flex-flow: row nowrap;
+				align-items: center;
 
 				&:not(:first-child) {
 					border-top: 1px solid #AAA;
@@ -42,9 +43,9 @@
 				}
 
 				> .handle {
-					flex: 0 0 20px;
+					flex: 0 0 30px;
 					margin-right: 10px;
-					height: 20px;
+					height: 30px;
 					background: #AAA;
 					cursor: move;
 				}
