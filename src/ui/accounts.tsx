@@ -216,7 +216,9 @@ function Account(props: {
 				keyboard={props.keyboard}
 			/></p>
 			<button disabled={loggingIn()}>Log in</button>
-			<Show when={error() !== ""}><p class="error" onClick={() => setError("")}>{error()}</p></Show>
+			<Show when={error() !== ""}>
+				<span class="error" onClick={() => setError("")}>{" " + error()}</span>
+			</Show>
 		</form>
 		<p><button type="button" class="warn" onClick={props.onDelete}>Delete Account</button></p>
 		<p>
@@ -266,7 +268,9 @@ function CreateAccount(props: {
 			keyboard={props.keyboard}
 		/></p>
 		<button>Create account</button>
-		<Show when={error() !== ""}><p class="error" onClick={() => setError("")}>{error()}</p></Show>
+		<Show when={error() !== ""}>
+			<span class="error" onClick={() => setError("")}>{" " + error()}</span>
+		</Show>
 	</form>;
 }
 
