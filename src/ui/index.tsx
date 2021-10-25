@@ -7,7 +7,6 @@ import { Db, LockedAccount, UnlockedAccount, db } from "../lib";
 import Accounts from "./accounts";
 import Dashboard from "./dashboard";
 import Keyboard from "./keyboard";
-import { runTests } from "../test";
 
 import "./base.scss";
 
@@ -149,22 +148,12 @@ function LoadedApp(props: { initialDb: Db, keyboard: Keyboard }): JSX.Element {
 					}}
 					keylogged={keylogged()}
 					scraped={scraped()}
+					setKeylogged={setKeylogged}
+					setScraped={setScraped}
 					keyboard={props.keyboard}
 				/>
 			</Match>
 		</Switch>
-
-		<div>
-			<p><label>
-				Enable keylogger protection:
-				<input type="checkbox" checked={keylogged()} onInput={e => setKeylogged((e.target as HTMLInputElement).checked)} />
-			</label></p>
-			<p><label>
-				Enable scraper protection:
-				<input type="checkbox" checked={scraped()} onInput={e => setScraped((e.target as HTMLInputElement).checked)} />
-			</label></p>
-			<button type="button" onClick={() => void runTests()}>Run tests</button>
-		</div>
 	</>;
 }
 
