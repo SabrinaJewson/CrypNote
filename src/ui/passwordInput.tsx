@@ -53,20 +53,8 @@ export default function(props: {
 
 			scrolled = <span class="passwordInputBox">{canvas}</span> as HTMLSpanElement;
 
-			const Label = (props: { children: string }): JSX.Element => {
-				return <span
-					onClick={() => {
-						if (canvas instanceof HTMLElement) {
-							canvas.focus();
-						}
-					}}
-				>
-					{props.children}
-				</span>;
-			};
-
 			el = <>
-				{props.label && <Label>{props.label}</Label>}
+				{props.label && <span onClick={() => focusable?.focus()}>{props.label}</span>}
 				{scrolled}
 			</>;
 		} else {

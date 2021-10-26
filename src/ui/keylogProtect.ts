@@ -57,14 +57,30 @@ export function keylogProtect(
 	});
 
 	element.addEventListener("beforeinput", e => {
-		// Prevent undo and redo because it doesn't work with the custom keyboard.
-		if (enable() && (e.inputType === "insertText" || e.inputType === "historyUndo" || e.inputType === "historyRedo")) {
+		const DISALLOWED_INPUTS = [
+			"insertText",
+			"insertCompositionText",
+			// Prevent undo and redo because it doesn't work with the custom keyboard.
+			"historyUndo",
+			"historyRedo",
+		];
+		if (enable() && DISALLOWED_INPUTS.includes(e.inputType)) {
 			e.preventDefault();
 		}
 	});
 	element.addEventListener("input", () => setContent(element.value));
-	element.addEventListener("focus", () => enable() && keyboard().show(handler));
-	element.addEventListener("click", () => enable() && keyboard().show(handler));
+	element.addEventListener("focus", () => {
+		if (enable()) {
+			keyboard().show(handler);
+			element.scrollIntoView();
+		}
+	});
+	element.addEventListener("pointerdown", () => {
+		if (enable() && document.activeElement === element) {
+			keyboard().show(handler);
+			element.scrollIntoView();
+		}
+	});
 	element.addEventListener("blur", () => {
 		if (element !== document.activeElement) {
 			keyboard().hide(handler);

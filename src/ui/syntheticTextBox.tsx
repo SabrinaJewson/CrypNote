@@ -488,7 +488,7 @@ export default function(props: {
 		};
 
 		canvas.addEventListener("pointerdown", e => {
-			if (e.button !== 0) {
+			if (e.button !== 0 || !focused()) {
 				return;
 			}
 			const i = graphemeAt(e.offsetX, e.offsetY).i;
@@ -496,6 +496,7 @@ export default function(props: {
 			getSelection()?.removeAllRanges();
 			canvas.setPointerCapture(e.pointerId);
 			props.keyboard?.show(keyboardHandler);
+			canvas.scrollIntoView();
 		});
 		canvas.addEventListener("pointermove", e => {
 			let cachedGrapheme: LocatedGrapheme | undefined;
@@ -514,6 +515,7 @@ export default function(props: {
 		canvas.addEventListener("focus", () => {
 			setFocused(true);
 			props.keyboard?.show(keyboardHandler);
+			canvas.scrollIntoView();
 		});
 		canvas.addEventListener("blur", () => {
 			if (document.activeElement === canvas) {

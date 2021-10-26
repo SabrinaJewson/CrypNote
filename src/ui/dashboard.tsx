@@ -450,7 +450,7 @@ function UserProfile(props: ScreenProps): JSX.Element {
 			/></p>
 			<button ref={changePasswordButton}>Change password</button>
 			<Show when={error() !== ""}>
-				<span class="error" onClick={() => setError("")}>{" " + error()}</span>
+				<span class="error" onPointerDown={() => setError("")}>{" " + error()}</span>
 			</Show>
 			<Fading state={changedPassword}>{<span> Changed password!</span> as HTMLElement}</Fading>
 		</form>
