@@ -29,7 +29,7 @@ export default function(props: {
 	keyboard?: Keyboard,
 	onTab?: () => void,
 } & WrappingProps): HTMLCanvasElement | JSX.Element {
-	const [selected, setSelected] = createSignal({ start: 0, end: 0 });
+	const [selectedInner, setSelected] = createSignal({ start: 0, end: 0 });
 
 	// Size of the canvas in CSS pixels
 	const [cssWidth, setCssWidth] = createSignal(0);
@@ -218,6 +218,15 @@ export default function(props: {
 			canvas.style.minHeight = `${(padding_.y + minHeight) / devicePixelRatio()}px`;
 
 			return { graphemes, rows };
+		});
+
+		const selected = createMemo(() => {
+			const { start, end } = selectedInner();
+			const { graphemes } = layout();
+			return {
+				start: Math.min(start, graphemes.length - 1),
+				end: Math.min(end, graphemes.length - 1),
+			};
 		});
 
 		const sliceContent = (start?: number, end?: number): string => {
