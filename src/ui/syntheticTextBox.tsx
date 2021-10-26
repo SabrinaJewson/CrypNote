@@ -1,5 +1,5 @@
 import Keyboard, { KeyboardHandler } from "./keyboard";
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { JSX } from "solid-js";
 import graphemeSplit from "graphemesplit";
 import { LineBreaker as lineBreaker } from "css-line-break";
@@ -249,10 +249,7 @@ export default function(props: {
 			cursorFlash();
 			cursorFlashTimeout = window.setTimeout(() => setCursorFlash(flash => !flash), 500);
 		});
-		createEffect(() => {
-			selected();
-			setCursorFlash(true);
-		});
+		createEffect(on(selected, () => setCursorFlash(true)));
 
 		const displayCursor = createMemo(() => {
 			return focused() && windowFocused() && cursorFlash() && selected().start === selected().end;
