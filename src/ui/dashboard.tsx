@@ -424,6 +424,8 @@ function UserProfile(props: ScreenProps): JSX.Element {
 			void (async () => {
 				props.setAccount("password", await UnlockedPassword.new(newPassword()));
 				changedPassword.show();
+				setNewPassword("");
+				setConfirmPassword("");
 			})();
 		}}>
 			<h2>Change password</h2>
