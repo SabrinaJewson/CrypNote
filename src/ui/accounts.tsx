@@ -216,7 +216,7 @@ function Account(props: {
 			/></p>
 			<button disabled={loggingIn()} ref={logInButton}>Log in</button>
 			<Show when={error() !== ""}>
-				<span class="error" onClick={() => setError("")}>{" " + error()}</span>
+				<span class="error" onPointerDown={() => setError("")}>{" " + error()}</span>
 			</Show>
 		</form>
 		<p><button type="button" class="warn" onClick={props.onDelete}>Delete Account</button></p>
@@ -287,7 +287,7 @@ function CreateAccount(props: {
 		/></p>
 		<button ref={createAccountButton}>Create account</button>
 		<Show when={error() !== ""}>
-			<span class="error" onClick={() => setError("")}>{" " + error()}</span>
+			<span class="error" onPointerDown={() => setError("")}>{" " + error()}</span>
 		</Show>
 	</form>;
 }

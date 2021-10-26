@@ -215,7 +215,8 @@ export default function(props: {
 	const element = <div
 		class="keyboard"
 		// Prevent clicking defocusing existing focused elements
-		onMouseDown={e => e.preventDefault()}
+		onPointerDown={e => e.preventDefault()}
+		onContextMenu={e => e.preventDefault()}
 	>
 		<For each={layout}>{row => <div><For each={row}>{key => {
 			const state = createMemo(() => {
@@ -232,7 +233,7 @@ export default function(props: {
 				);
 			});
 
-			const onClick = (e: MouseEvent): void => {
+			const onPointerDown = (e: PointerEvent): void => {
 				const func = state().function;
 				switch (func) {
 					case Special.Backspace: {
@@ -292,10 +293,13 @@ export default function(props: {
 				}
 			};
 
-			return <div class="key" style={`flex: ${key.width} 0 ${key.width}px`}>
+			return <div
+				class="key"
+				style={`flex: ${key.width} 0 ${key.width}px`}
+				onPointerDown={onPointerDown}
+				onDblClick={onDblClick}
+			>
 				<div
-					onClick={onClick}
-					onDblClick={onDblClick}
 					classList={{ held: held() }}
 					style={`height:${keyHeight()}px;line-height:${keyHeight()}px`}
 				>
