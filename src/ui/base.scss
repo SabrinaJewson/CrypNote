@@ -30,6 +30,9 @@ textarea {
 	}
 }
 
-.syntheticTextBox:focus {
-	outline: none;
+.syntheticTextBox {
+	height: 0;
+	&:focus {
+		outline: none;
+	}
 }

@@ -69,7 +69,7 @@ export default function(props: {
 
 	let observer: ResizeObserver;
 	if ("devicePixelContentBoxSize" in ResizeObserverEntry.prototype) {
-		observer = new ResizeObserver(([entry]) => {
+		observer = new ResizeObserver(([entry]) => batch(() => {
 			const cssSize = valueOrFirst(entry.contentBoxSize);
 			setCssWidth(cssSize.inlineSize);
 			setCssHeight(cssSize.blockSize);
@@ -77,13 +77,13 @@ export default function(props: {
 			const deviceSize = valueOrFirst(entry.devicePixelContentBoxSize);
 			setDeviceWidth(deviceSize.inlineSize);
 			setDeviceHeight(deviceSize.blockSize);
-		});
+		}));
 	} else {
-		observer = new ResizeObserver(([entry]) => {
+		observer = new ResizeObserver(([entry]) => batch(() => {
 			const cssSize = valueOrFirst(entry.contentBoxSize);
 			setCssWidth(cssSize.inlineSize);
 			setCssHeight(cssSize.blockSize);
-		});
+		}));
 		// Fall back to rounding based on device pixel ratio. This does not work always:
 		//
 		// > The device-pixel-content-box can be approximated by multiplying devicePixelRatio by
@@ -327,6 +327,9 @@ export default function(props: {
 			if (props.setContent === undefined) {
 				return;
 			}
+			if (!props.textWrap) {
+				text = text.replaceAll("\n", "");
+			}
 			const { start, end } = normalizeSelection(selected());
 			props.setContent(sliceContent(0, start) + text + sliceContent(end));
 			const cursor = start + graphemeSplit(text).length;
@@ -540,8 +543,10 @@ export default function(props: {
 			const { start, end } = normalizeSelection(selected());
 			if (focused() && !props.discify && start !== end && props.setContent !== undefined) {
 				e.clipboardData?.setData("text/plain", sliceContent(start, end));
-				props.setContent(sliceContent(0, start) + sliceContent(end));
-				setSelected({ start, end: start });
+				batch(() => {
+					props.setContent!(sliceContent(0, start) + sliceContent(end));
+					setSelected({ start, end: start });
+				});
 				e.preventDefault();
 			}
 		};
