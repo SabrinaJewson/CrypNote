@@ -189,7 +189,8 @@ export default function(props: {
 						stringIndex += grapheme.length;
 					}
 				}
-				graphemes.push({ stringIndex, row: wrapper.row, x: wrapper.x, width: 0 });
+				const finalBox = wrapper.box(0);
+				graphemes.push({ stringIndex, row: finalBox.row, x: finalBox.x, width: 0 });
 
 				minHeight = ascent + lineHeight * wrapper.row + descent;
 			} else {
@@ -491,13 +492,15 @@ export default function(props: {
 		};
 
 		canvas.addEventListener("pointerdown", e => {
-			if (e.button !== 0 || !focused()) {
+			if (e.button !== 0 || e.pointerType === "touch" && !focused()) {
 				return;
 			}
 			const i = graphemeAt(e.offsetX, e.offsetY).i;
 			setSelected({ start: i, end: i });
 			getSelection()?.removeAllRanges();
-			canvas.setPointerCapture(e.pointerId);
+			if (e.pointerType !== "touch") {
+				canvas.setPointerCapture(e.pointerId);
+			}
 			props.keyboard?.show(keyboardHandler);
 			canvas.scrollIntoView();
 		});
@@ -541,7 +544,7 @@ export default function(props: {
 		};
 		const onCut = (e: ClipboardEvent): void => {
 			const { start, end } = normalizeSelection(selected());
-			if (focused() && !props.discify && start !== end && props.setContent !== undefined) {
+			if (!props.discify && start !== end && props.setContent !== undefined) {
 				e.clipboardData?.setData("text/plain", sliceContent(start, end));
 				batch(() => {
 					props.setContent!(sliceContent(0, start) + sliceContent(end));
@@ -552,7 +555,7 @@ export default function(props: {
 		};
 		const onCopy = (e: ClipboardEvent): void => {
 			const { start, end } = normalizeSelection(selected());
-			if (focused() && !props.discify && start !== end) {
+			if (!props.discify && start !== end) {
 				e.clipboardData?.setData("text/plain", sliceContent(start, end));
 				e.preventDefault();
 			}
