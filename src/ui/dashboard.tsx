@@ -264,8 +264,8 @@ function Encrypt(props: ScreenProps): JSX.Element {
 	return <>
 		<h1>Encrypt</h1>
 		<p>
-			An encrypted message will be only readable by one other person in the world - and
-			<a href="https://miracl.com/blog/backdoors-in-nist-elliptic-curves/"> the NSA, of
+			An encrypted message will be only readable by one other person in the world - and{" "}
+			<a href="https://miracl.com/blog/backdoors-in-nist-elliptic-curves/">the NSA, of
 			course</a>. Anyone can tell who sent an encrypted message, but they can't see who is
 			going to receive it.
 		</p>
