@@ -285,19 +285,10 @@ export default function(props: {
 				}
 			};
 
-			const onDblClick = (): void => {
-				if (state().function === Special.Shift) {
-					setShiftMode(mode => (
-						mode === ShiftMode.CapsLock ? ShiftMode.Normal : ShiftMode.CapsLock
-					));
-				}
-			};
-
 			return <div
 				class="key"
 				style={`flex: ${key.width} 0 ${key.width}px`}
 				onPointerDown={onPointerDown}
-				onDblClick={onDblClick}
 			>
 				<div
 					classList={{ held: held() }}
