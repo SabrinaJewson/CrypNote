@@ -6,6 +6,7 @@ import { Bytes, BytesReader } from "../bytes";
 import { Exportable, Importable } from "./exportable";
 import { IncorrectPassword, LockedAccount, TamperedError, UnlockedAccount, createAccount } from "../lib";
 import { InvalidFormatError, OutdatedError } from "../serde";
+import { currentVersion, latestVersion } from "../version";
 import Keyboard from "./keyboard";
 import OrderableList from "./orderableList";
 import PasswordInput from "./passwordInput";
@@ -154,7 +155,15 @@ export default function(props: {
 			}
 
 			if (selected_ === null) {
-				return <></>;
+				if (latestVersion !== undefined && latestVersion !== currentVersion) {
+					const download = `https://github.com/KaiJewson/CrypNote/releases/download/v${latestVersion}/CrypNote.html`;
+					return <p>
+						This version of CrypNote is outdated! You can download the latest
+						version (v{latestVersion}){" "}
+						<a href={download} download="CrypNote.html">here</a>.
+					</p>;
+				}
+				return;
 			}
 
 			exhausted(selected_);

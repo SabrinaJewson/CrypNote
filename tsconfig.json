@@ -6,8 +6,9 @@
 		"module": "ESNext",
 		"moduleResolution": "Node",
 		"noEmit": true,
-		"strictNullChecks": true,
 		"noImplicitThis": true,
+		"resolveJsonModule": true,
+		"strictNullChecks": true,
 		"target": "ESNext"
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx"]
