@@ -75,7 +75,7 @@ export function createDefault(): Db {
 		accountBin: [],
 		keylogged: true,
 		scraped: true,
-		keyHeight: 50,
+		keyHeight: 75,
 	};
 }
 
