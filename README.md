@@ -7,6 +7,6 @@ happens using P-256 ECDSA.
 
 CrypNote is distributed as a single HTML file which can be used from most modern browsers. You can
 install it by downloading `CrypNote.html` from the
-[releases page](https://github.com/KaiJewson/CrypNote/releases). When updating your version of
+[releases page](https://github.com/SabrinaJewson/CrypNote/releases). When updating your version of
 CrypNote, make sure that it has the same file path as the old version, otherwise all your data will
 not be transferred over.

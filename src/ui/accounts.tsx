@@ -156,7 +156,7 @@ export default function(props: {
 
 			if (selected_ === null) {
 				if (latestVersion !== undefined && latestVersion !== currentVersion) {
-					const download = `https://github.com/KaiJewson/CrypNote/releases/download/v${latestVersion}/CrypNote.html`;
+					const download = `https://github.com/SabrinaJewson/CrypNote/releases/download/v${latestVersion}/CrypNote.html`;
 					return <p>
 						This version of CrypNote is outdated! You can download the latest
 						version (v{latestVersion}){" "}
